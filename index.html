@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="日本に生まれたあなたのお金の一生を、統計どおりの相場でシミュレーション。暴落が来たら売る？耐える？ AIでつくってためそ。">
+<meta property="og:title" content="資産人生シミュレーター（ベータ版）｜AIでつくってためそ">
+<meta property="og:description" content="あなたのお金の一生を、統計どおりの相場で生きてみる。億り人か、破産か。">
+<meta property="og:type" content="website">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>資産人生シミュレーター</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+</head>
+<body>
+<style>
+/* Layout: 預金通帳をモチーフにした2カラム。左に資産グラフと通帳の記帳欄、右に持ち物と買い物 */
+:root{
+  --paper:#edf2ec; --paper2:#e1e9de; --card:#f8fbf7; --ink:#1d2937; --muted:#5b6a64; --line:#c3d0c2;
+  --accent:#1d6c5f; --accent-ink:#ffffff; --stamp:#c5352b; --gold:#a8800f; --good:#22744a; --hl:#fff1b8; --hl-line:#d9a800;
+  --shadow:0 1px 0 rgba(29,41,55,.06),0 6px 18px rgba(29,41,55,.07);
+  --f-display:"M PLUS Rounded 1c","Zen Kaku Gothic New","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111918; --hl:#4a3c0c; --hl-line:#e2b947; --paper2:#17211f; --card:#1a2523; --ink:#e3ebe5; --muted:#94a49d; --line:#2c3b37;
+  --accent:#4cb6a1; --accent-ink:#0b1413; --stamp:#ff6a5c; --gold:#e2b947; --good:#5dc78d;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111918; --hl:#4a3c0c; --hl-line:#e2b947; --paper2:#17211f; --card:#1a2523; --ink:#e3ebe5; --muted:#94a49d; --line:#2c3b37;
+  --accent:#4cb6a1; --accent-ink:#0b1413; --stamp:#ff6a5c; --gold:#e2b947; --good:#5dc78d;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{text-wrap:balance;margin:0}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.btn{border:0;border-radius:10px;padding:10px 16px;background:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.warn{background:var(--stamp);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* header */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,4vw,32px);letter-spacing:.02em;line-height:1.1}
+.brand small{display:block;font-family:var(--f-body);font-size:12px;letter-spacing:.18em;color:var(--muted);font-weight:700}
+.beta{font-size:12px;color:var(--muted)}
+
+/* setup */
+.setup{display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:start}
+.lead h2{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,4.2vw,40px);line-height:1.4;letter-spacing:.02em}
+.lead h2 em{font-style:normal;color:var(--accent)}
+.lead p{max-width:34em}
+.lead ul{padding-left:1.2em;margin:.6em 0}
+.form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.form h3{grid-column:1/-1;font-size:15px;letter-spacing:.12em;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label{font-size:13px;font-weight:700}
+.field input,.field select{font:inherit;padding:9px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);min-width:0;width:100%}
+.unit{font-size:12px;color:var(--muted)}
+.form .btn{grid-column:1/-1;font-size:17px;padding:14px}
+
+/* game */
+.game{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.panel h3{font-size:13px;letter-spacing:.14em;color:var(--muted);margin-bottom:8px}
+.hud{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:baseline}
+.hud .big{font-family:var(--f-num);font-weight:600;font-size:clamp(28px,4.4vw,40px);line-height:1}
+.hud .lbl{font-size:12px;color:var(--muted);display:block}
+.hud .age{font-family:var(--f-display);font-weight:800;font-size:28px}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.market{margin-top:10px;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--paper2)}
+canvas#chart{width:100%;height:220px;display:block}
+.book{max-height:340px;overflow:auto;border-top:2px solid var(--ink)}
+.book table{width:100%;border-collapse:collapse;font-size:13px}
+.book th{position:sticky;top:0;background:var(--card);text-align:left;font-size:11px;letter-spacing:.1em;color:var(--muted);padding:6px 6px;border-bottom:1px solid var(--line)}
+.book td{padding:5px 6px;border-bottom:1px dashed var(--line);vertical-align:top}
+.book td.r{text-align:right;white-space:nowrap}
+.book tr.yr td{border-top:1px solid var(--line)}
+.out{color:var(--stamp)} .in{color:var(--good)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:4px;border:1.5px solid currentColor;margin-right:4px;line-height:1.5}
+.tag.crash{color:var(--stamp);transform:rotate(-4deg)}
+.tag.ev{color:var(--gold)}
+.hold{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.row .nm{min-width:0}
+.row .nm small{display:block;color:var(--muted);font-size:11px}
+.row .v{white-space:nowrap}
+.row button{font-size:12px;padding:4px 10px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--ink)}
+.shop{display:grid;grid-template-columns:1fr;gap:8px}
+.item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border:1.5px solid var(--line);border-radius:10px;background:var(--paper)}
+.item b{display:block;font-size:14px}
+.item span{font-size:12px;color:var(--muted);display:block}
+.item .btn{padding:7px 12px;font-size:13px;white-space:nowrap}
+.item .need{font-size:11px;color:var(--stamp);text-align:right;margin-top:3px;white-space:nowrap}
+.item.off{opacity:.7}
+.side{display:flex;flex-direction:column;gap:18px;min-width:0}
+
+/* overlay */
+.ov{position:fixed;inset:0;background:rgba(10,16,15,.62);display:flex;align-items:center;justify-content:center;z-index:20;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.dlg{background:var(--card);color:var(--ink);border-radius:16px;max-width:560px;width:100%;max-height:100%;overflow:auto;padding:22px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.dlg h2{font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1.25;margin-bottom:6px}
+.stamp{position:absolute;right:18px;top:14px;font-family:var(--f-display);color:var(--stamp);border:4px solid var(--stamp);border-radius:50%;width:84px;height:84px;display:flex;align-items:center;justify-content:center;font-size:24px;transform:rotate(12deg);opacity:.9}
+.drop{font-family:var(--f-num);font-size:22px;margin:10px 0}
+.choices{display:grid;gap:8px;margin-top:14px}
+.choices button{text-align:left;padding:12px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font-weight:700}
+.choices button small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.choices button:hover{border-color:var(--accent)}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.inline input{width:120px;font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink)}
+.err{color:var(--stamp);font-size:13px;min-height:1.2em}
+
+/* result */
+.result{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.type{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,4.6vw,40px);line-height:1.25}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:10px}
+.kv dt{color:var(--muted);font-size:13px}
+.kv dd{margin:0;font-family:var(--f-num);font-weight:600}
+.points{display:grid;gap:12px}
+.points h4{margin:0 0 4px;font-size:14px}
+.points ul{margin:0;padding-left:1.2em}
+.pt-good h4{color:var(--good)} .pt-warn h4{color:var(--stamp)}
+.card-img{width:100%;max-width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+.copybox{width:100%;font:inherit;font-size:13px;padding:10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);resize:vertical;min-height:110px}
+.src summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px}
+.src summary::before{content:"＋";font-weight:700;color:var(--accent);margin-right:6px}
+.src[open] summary::before{content:"−"}
+.src summary span{font-size:12px}
+.src table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+.src th{text-align:left;font-size:11px;letter-spacing:.1em;color:var(--muted);padding:6px;border-bottom:1px solid var(--line)}
+.src td{padding:7px 6px;border-bottom:1px dashed var(--line);vertical-align:top}
+.src td small{display:block;color:var(--muted);font-size:11px}
+.src a{color:var(--accent);font-weight:700}
+.src .st{font-size:11px;font-weight:700;padding:1px 7px;border-radius:5px;border:1.5px solid var(--line);color:var(--muted);white-space:nowrap}
+.src .st.on{border-color:var(--good);color:var(--good)}
+.fb{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;border:2px solid var(--accent);background:var(--paper2)}
+.fb textarea{font:inherit;font-size:14px;padding:10px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;width:100%}
+.total{grid-column:1/-1;margin:0;font-size:13px;text-align:center;color:var(--muted)}
+.total b{font-family:var(--f-num);color:var(--accent);font-size:16px}
+.limit{grid-column:1/-1;font-size:13px;margin:0;color:var(--muted)}
+.limit.zero{color:var(--stamp);font-weight:700}
+.foot{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+
+.form.simple .d-only,.form:not(.simple) .s-only,.simple-game .d-only{display:none!important}
+.nl{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:var(--paper2)}
+.nl label{font-size:14px}.nl label span{font-size:12px}
+.nl textarea{font:inherit;font-size:14px;padding:10px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;width:100%}
+.nlout{font-size:13px;line-height:1.7}
+.nlout .chip2{display:inline-block;background:var(--hl);border:1.5px solid var(--hl-line);border-radius:6px;padding:0 6px;margin:2px 4px 2px 0;color:var(--ink)}
+.field.upd input,.field.upd select{background:var(--hl);border-color:var(--hl-line)}
+.field.upd label::after{content:"文章から";margin-left:6px;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;background:var(--hl-line);color:#111}
+.seg{grid-column:1/-1;display:flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.seg label{flex:1;text-align:center;padding:9px 6px;font-weight:700;font-size:14px;cursor:pointer;background:var(--paper);color:var(--muted)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg input:checked+span{color:var(--accent-ink)}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
+.seg label:has(input:focus-visible){outline:3px solid var(--accent);outline-offset:-3px}
+.gacha{grid-column:1/-1;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:var(--paper2);font-size:14px}
+.gacha b{font-family:var(--f-display);font-weight:400}
+.form input[readonly],.form select:disabled{opacity:.75}
+.ctrl select{font:inherit;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink)}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.ph h3{margin:0}
+.toggle{display:flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
+.toggle button{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:700;padding:5px 10px}
+.toggle button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.replay{margin-top:10px;padding:10px 12px;border-radius:10px;border:2px dashed var(--accent);font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.replay .btn{padding:7px 12px;font-size:13px}
+.adv{margin-top:18px;font-size:13px;padding:7px 14px}
+.load{display:flex;flex-direction:column;gap:8px;margin-top:18px;padding:14px;border:1.5px dashed var(--line);border-radius:12px;max-width:34em}
+.load h3{font-size:14px;margin:0}
+.load textarea{font:12px var(--f-num);min-height:70px;padding:8px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;width:100%}
+.hbal{display:flex;flex-direction:column;padding:6px 12px;border-radius:10px;border:2px solid var(--line)}
+.hbal .mid{font-size:24px;font-weight:600;line-height:1.1}
+.hbal small{font-size:11px;color:var(--muted)}
+.hbal.plus{border-color:var(--good)} .hbal.plus .mid{color:var(--good)}
+.hbal.minus{border-color:var(--stamp)} .hbal.minus .mid{color:var(--stamp)}
+.bal{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 16px;border-radius:12px;margin:10px 0;border:2.5px solid}
+.bal span{font-weight:700}.bal b{font-size:34px}
+.bal.plus{border-color:var(--good);color:var(--good)}.bal.minus{border-color:var(--stamp);color:var(--stamp)}
+.resetbar{grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+.btn.reset{background:transparent;color:var(--stamp);border:2px solid var(--stamp);padding:7px 14px;font-size:13px}
+.rbadge{display:inline-block;white-space:nowrap;font-family:var(--f-display);font-weight:800;font-size:14px;color:var(--stamp);border:2px solid var(--stamp);border-radius:999px;padding:2px 12px;margin-bottom:8px}
+.btn.reset:hover{background:var(--stamp);color:#fff}
+.rv{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:12px;border-radius:12px;background:var(--paper2)}
+.rv textarea{font:inherit;font-size:13px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;width:100%}
+.rvprev table{width:100%;border-collapse:collapse;font-size:13px}
+.rvprev td{padding:4px 6px;border-bottom:1px dashed var(--line)}
+.rvprev td.r{text-align:right;white-space:nowrap;font-family:var(--f-num)}
+.rvprev tr.chg td{background:var(--hl)}
+.row.upd{background:var(--hl);border-radius:6px;padding-left:6px;padding-right:6px}
+.prog{height:4px;border-radius:4px;background:var(--paper2);margin-top:10px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s linear}
+@media (max-width:860px){
+  .setup,.game,.result{grid-template-columns:1fr}
+  .form{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><small>つくってためそ</small>資産人生シミュレーター</div>
+    <div class="beta">ベータ版　<a href="#sources" id="srcLink" style="color:var(--accent);font-weight:700">参考にしている統計</a></div>
+  </header>
+
+  <!-- 1. 最初の入力 -->
+  <section id="setup" class="setup">
+    <div class="lead">
+      <h2>あなたのお金の一生を、<br><em>統計どおりの相場</em>で<br>生きてみる。</h2>
+      <p>今の年齢と資産を入れるか、ランダムに決めてもらったら、1か月ずつ人生が進みます。相場は過去の実際の年からくじ引きで決まるので、リーマンショック級の暴落もいつ来るかわかりません。</p>
+      <ul>
+        <li>ふだん買えないタワマンやスポーツカーも、試しに買えます</li>
+        <li>暴落が来たら時間が止まり、売るか耐えるか買い増すかを選びます</li>
+        <li>最後に、あなたがどんなタイプかの総評と共有カードが出ます</li>
+      </ul>
+      <p class="muted" style="font-size:13px">「自分で入力」の欄には例の値が入っています。自分の数字に変えて始めてください。</p>
+      <!-- 保存した記録の読み込み：いまは隠している。出すときは SHOW_LOAD を true にする -->
+      <button class="btn ghost adv" type="button" id="advBtn" aria-expanded="false" aria-controls="loadBox">＋ 上級者向けの機能</button>
+      <div class="load" id="loadBox" hidden>
+        <h3>保存した記録を読み込む</h3>
+        <p class="muted" style="font-size:12px;margin:0">記録した人生を最初から再生します。相場や出来事は同じまま進み、途中で「ここから自分で操作する」を押すと、別の選択でやり直せます。</p>
+        <input type="file" id="ldFile" accept=".json,application/json" aria-label="記録ファイルを選ぶ">
+        <textarea id="ldText" placeholder="または、コピーした記録（JSON）をここに貼り付け" aria-label="記録のJSON"></textarea>
+        <div class="err" id="ldErr"></div>
+        <button class="btn" type="button" id="ldGo">読み込んで最初から再生</button>
+      </div>
+    </div>
+    <form class="form simple" id="f">
+      <div class="nl">
+        <label for="nlText"><b>文章で入力する</b><span class="muted">　自分の状況を書くと、下の欄に自動で入ります</span></label>
+        <textarea id="nlText" rows="4" placeholder="例：38歳の会社員です。年収は600万円で、妻はパートで年収100万円。子どもは2人（5歳と2歳）。貯金は500万円、NISAで300万円持っていて、毎月3万円つみたてています。家賃は月9万円、食費は月7万円くらい。65歳で退職する予定です。"></textarea>
+        <div class="ctrl" style="margin:0"><button class="btn" type="button" id="nlGo">文章から入力する</button><button class="btn ghost" type="button" id="nlClear">色を消す</button></div>
+        <div id="nlOut" class="nlout" hidden></div>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="遊び方">
+        <label><input type="radio" name="lv" value="simple" checked><span>シンプル版</span></label>
+        <label><input type="radio" name="lv" value="detail"><span>詳細版</span></label>
+      </div>
+      <p class="muted s-only" style="grid-column:1/-1;font-size:12px;margin:0">入れるのは4つだけ。年収や支出、つみたては平均の近くでランダムに決まります。</p>
+      <p class="muted d-only" style="grid-column:1/-1;font-size:12px;margin:0">年収・資産の内訳・つみたて・家族・毎月の支出まで、細かく入れられます。</p>
+      <h3>あなたのいま</h3>
+      <div class="seg" role="radiogroup" aria-label="始め方">
+        <label><input type="radio" name="mode" value="self" checked><span>自分で入力</span></label>
+        <label><input type="radio" name="mode" value="rand"><span>ランダムに決める</span></label>
+      </div>
+      <div class="gacha" id="gacha" hidden><span id="gachaText"></span><button class="btn ghost" type="button" id="reroll" style="padding:6px 12px;font-size:13px">ふり直す</button></div>
+      <div class="field"><label for="age">年齢</label><input id="age" type="number" min="20" max="70" value="35"></div>
+      <div class="field"><label for="job">職業</label>
+        <select id="job">
+          <option value="big">会社員（大企業）</option>
+          <option value="sme" selected>会社員（中小企業）</option>
+          <option value="gov">公務員</option>
+          <option value="self">自営業</option>
+          <option value="free">フリーランス</option>
+        </select></div>
+      <div class="field s-only"><label for="sTotal">貯金と投資の合計</label><input id="sTotal" type="number" min="0" step="10" value="500"><span class="unit">万円</span></div>
+      <div class="field s-only"><label for="sFam">家族</label>
+        <select id="sFam"><option value="single">ひとり</option><option value="couple">夫婦</option><option value="k1" selected>夫婦＋子ども1人</option><option value="k2">夫婦＋子ども2人</option></select></div>
+      <div class="field d-only"><label for="salary">年収（額面）</label><input id="salary" type="number" min="0" step="10" value="450"><span class="unit">万円</span></div>
+      <div class="field d-only"><label for="retire">仕事をやめる年齢</label><input id="retire" type="number" min="40" max="80" value="65"></div>
+      <div class="field d-only"><label for="cash">現金・預金</label><input id="cash" type="number" min="0" step="10" value="300"><span class="unit">万円</span></div>
+      <div class="field d-only"><label for="fund">投資信託など</label><input id="fund" type="number" min="0" step="10" value="200"><span class="unit">万円</span></div>
+      <div class="field d-only"><label for="tsumi">毎年のつみたて</label><input id="tsumi" type="number" min="0" step="6" value="60"><span class="unit">万円／年</span></div>
+      <div class="field d-only"><label for="spouse">配偶者</label>
+        <select id="spouse"><option value="none">なし</option><option value="work" selected>あり（共働き）</option><option value="home">あり（専業）</option></select></div>
+      <div class="field d-only"><label for="spouseSal">配偶者の年収（額面）</label><input id="spouseSal" type="number" min="0" step="10" value="300"><span class="unit">万円（共働きのとき）</span></div>
+      <div class="field d-only"><label for="side">副業・その他の収入</label><input id="side" type="number" min="0" step="10" value="0"><span class="unit">万円／年（額面）</span></div>
+      <div class="field d-only"><label for="kids">子どもの人数</label><input id="kids" type="number" min="0" max="4" value="1"></div>
+      <div class="field d-only"><label for="kidage">一番上の子の年齢</label><input id="kidage" type="number" min="0" max="30" value="3"></div>
+      <h3 class="d-only" style="margin-top:8px">毎月の支出</h3>
+      <div class="seg d-only" role="radiogroup" aria-label="支出の決め方" id="exSeg">
+        <label><input type="radio" name="exmode" value="self" checked><span>自分で入力</span></label>
+        <label><input type="radio" name="exmode" value="avg"><span>平均にする</span></label>
+        <label><input type="radio" name="exmode" value="rand"><span>ランダム</span></label>
+      </div>
+      <div class="d-only" id="exFields" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px"></div>
+      <div class="d-only" id="exCustom" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"></div>
+      <div class="d-only" style="grid-column:1/-1"><button class="btn ghost" type="button" id="exAdd" style="padding:7px 12px;font-size:13px">＋支出の項目を追加</button></div>
+      <p class="muted d-only" style="grid-column:1/-1;font-size:12px;margin:0" id="exTotal"></p>
+      <p class="limit" id="limitMsg"></p>
+      <div class="fbslot" style="grid-column:1/-1"></div>
+      <p class="total" id="totalPlays" hidden></p>
+      <button class="btn" type="submit" id="bStart">人生をはじめる</button>
+    </form>
+  </section>
+
+  <!-- 2. ゲーム画面 -->
+  <section id="game" class="game" hidden>
+    <div class="resetbar"><span class="muted">いまの人生をやめて、入力からやり直すとき</span><button class="btn reset" id="bReset">⟲ リセットして最初の画面へ</button></div>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <div class="panel">
+        <div class="hud">
+          <div><span class="lbl">年齢</span><span class="age" id="hAge">35歳</span></div>
+          <div><span class="lbl">西暦</span><span class="num" id="hYear">2026年</span></div>
+          <div><span class="lbl">純資産（借金を引いた額）</span><span class="big" id="hNet">0</span></div>
+          <div class="hbal" id="hBal"><span class="lbl">毎月の収支</span><span class="mid num" id="hBalV">0</span><small id="hBalS"></small></div>
+        </div>
+        <div class="replay" id="replayBar" hidden></div>
+        <div class="market" id="hMarket">相場はまだ動いていません</div>
+        <div class="ctrl">
+          <button class="btn" id="bAuto">自動ですすむ</button>
+          <label for="speed" class="muted" style="font-size:12px;align-self:center">速さ</label>
+          <select id="speed">
+            <option value="5000" selected>1年＝1分</option>
+            <option value="2500">1年＝30秒</option>
+            <option value="1000">1年＝12秒</option>
+            <option value="250">1年＝3秒</option>
+          </select>
+          <button class="btn ghost" id="bMonth">1か月すすむ</button>
+          <button class="btn ghost" id="bStep">1年すすむ</button>
+          <button class="btn ghost" id="bEnd">一気に最後まで</button>
+          <button class="btn warn" id="bFire">FIREする</button>
+          <button class="btn ghost" id="bParam">設定を変える</button>
+          <button class="btn ghost" id="bSave">記録を保存</button>
+        </div>
+        <div class="prog" aria-hidden="true"><i id="prog"></i></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h3>資産の推移</h3>
+          <div class="toggle" role="group" aria-label="グラフの間隔"><button type="button" data-view="month" aria-pressed="true">1か月ごと</button><button type="button" data-view="year" aria-pressed="false">1年ごと</button></div>
+        </div>
+        <canvas id="chart" aria-label="年齢ごとの純資産のグラフ"></canvas>
+      </div>
+      <div class="panel">
+        <h3>通帳（毎年の記帳）</h3>
+        <div class="book"><table><thead><tr><th>年齢</th><th>摘要</th><th style="text-align:right">金額</th></tr></thead><tbody id="book"></tbody></table></div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <h3>持っているもの</h3>
+        <div class="hold" id="hold"></div>
+      </div>
+      <div class="panel">
+        <h3>毎月の支出（いまの物価）</h3>
+        <div class="hold" id="exList"></div>
+        <div class="rv">
+          <label for="rvText" style="font-size:13px"><b>文章で見直す</b><span class="muted">　支出や収入の変化を書くと、反映前に確認できます</span></label>
+          <textarea id="rvText" rows="3" placeholder="例：食費を月6万に減らす。ジムを月1万で始める。車を手放して交通費は月1万。つみたてを月5万に増やす。"></textarea>
+          <div class="ctrl" style="margin:0"><button class="btn" type="button" id="rvGo">内容を読み取る</button></div>
+          <div class="rvprev" id="rvPrev" hidden></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>大きな買い物</h3>
+        <div class="shop" id="shop"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 結果 -->
+  <section id="result" hidden></section>
+
+  <details class="panel src" id="sources">
+    <summary><b>参考にしている統計を見る</b><span class="muted">　出典へのリンクと主な数字</span></summary>
+    <p class="muted" style="font-size:13px;margin:10px 0 8px">いまのベータ版で統計の数字を使っているのは、株価と子どもの学費です。「反映予定」の統計は、正式版でゲームの数字に置き換えます。</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>統計（クリックで出典へ）</th><th>主な数字</th><th>このゲームでの使い道</th><th>状態</th></tr></thead><tbody><tr><td><a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html" target="_blank" rel="noopener">株の年ごとの値動き（1928年〜）</a><small>ニューヨーク大学 ダモダラン教授</small></td><td>S&P500（配当込み）の1928〜2024年の平均は年約11.8%、複利の平均は年約9.9%。一番悪かった年は1931年の−43.8%（ページの年ごとのデータから計算）</td><td>1970〜2024年の各年の値動きをくじ引き。年の途中の下落幅は概算</td><td><span class="st on">使用中（概算）</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00400201" target="_blank" rel="noopener">子供の学習費調査（令和5年度）</a><small>文部科学省（e-Stat）</small></td><td>子ども1人の1年間の学習費。公立：幼稚園18.5万・小学校33.6万・中学校54.2万・高校59.8万円。私立：幼稚園34.7万・小学校182.8万・中学校156.0万・高校103.0万円</td><td>公立の値＋子ども用の雑費20万円／年。大学は年150万円の目安</td><td><span class="st on">使用中（公立）</span></td></tr><tr><td><a href="https://www.j-flec.go.jp/wpimages/uploads/yoronf25.pdf" target="_blank" rel="noopener">家計の金融行動に関する世論調査 2025</a><small>金融経済教育推進機構（J-FLEC）</small></td><td>金融資産の保有額（平均）は、二人以上世帯で1,940万円、単身世帯で919万円（2025年6〜7月調査）</td><td>ランダムで決める資産額（いまは年代別の仮の中央値）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00450091" target="_blank" rel="noopener">賃金構造基本統計調査（令和7年）</a><small>厚生労働省（e-Stat）</small></td><td>一般労働者の賃金（月額）は34万600円で過去最高。男性37万3,400円、女性28万5,900円。平均年齢44.4歳</td><td>職業ごとの年収（いまは仮の値：大企業650万・中小450万・公務員600万円など）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00200561" target="_blank" rel="noopener">家計調査（2025年）</a><small>総務省統計局（e-Stat）</small></td><td>二人以上世帯の消費支出は月31万4,001円、前年より実質0.9%増</td><td>毎月の支出の「平均にする」の値（いまは仮の値：二人以上世帯で月約33万円）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00200573" target="_blank" rel="noopener">消費者物価指数（2025年平均）</a><small>総務省統計局（e-Stat）</small></td><td>総合指数は前年比+3.2%、生鮮食品を除く総合は+3.1%（2020年=100）</td><td>物価の上がり方（いまは毎年2%で固定）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00200531" target="_blank" rel="noopener">労働力調査（2025年平均）</a><small>総務省統計局（e-Stat）</small></td><td>完全失業率2.5%、完全失業者176万人（どちらも前年と同じ）</td><td>失業する確率（いまは毎年2%、暴落の年は6%）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00450099" target="_blank" rel="noopener">就労条件総合調査（令和5年）</a><small>厚生労働省（e-Stat）</small></td><td>定年退職者の退職給付額（平均）は、大学・大学院卒1,896万円、高校卒1,682万円</td><td>退職金（いまは仮の値：大企業2,500万・中小1,100万・公務員2,100万円）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.mhlw.go.jp/toukei/saikin/hw/seimei/list54-57-01.html" target="_blank" rel="noopener">生命表（令和7年簡易生命表）</a><small>厚生労働省</small></td><td>平均寿命は男性81.35歳、女性87.33歳。65歳の人の平均余命は男性19.68年、女性24.52年</td><td>何歳で人生が終わるか（いまは年齢とともに上がる仮の確率）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.mlit.go.jp/totikensangyo/totikensangyo_tk5_000085.html" target="_blank" rel="noopener">不動産価格指数</a><small>国土交通省</small></td><td>マンション（区分所有）の指数は202.2、住宅総合は137.8（2024年7月分・2010年平均=100）。マンションは2010年の約2倍</td><td>マンション価格の動き（いまは年+1%前後の仮の値）</td><td><span class="st ">反映予定</span></td></tr><tr><td><a href="https://www.e-stat.go.jp/statistics/00200521" target="_blank" rel="noopener">国勢調査（2025年）</a><small>総務省統計局（e-Stat）</small></td><td>日本の総人口は1億2,297万2,528人（2025年10月1日）</td><td>「1億2千万分の1」の元になった数字</td><td><span class="st ">参考</span></td></tr></tbody></table></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">国の統計はまとめて <a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">e-Stat（政府統計の総合窓口）</a> で見られます。数字は2026年10月時点で確認したものです。</p>
+  </details>
+  <p class="foot">相場は1970〜2024年の米国株の年間リターン（概算）からくじ引きしています。年収・生活費・退職金・年金・物価・寿命などはベータ版用の仮の値で、正式版では統計の台帳から読み込みます。ゲームであり、投資の助言ではありません。</p>
+</div>
+
+<div class="ov" id="ov" hidden><div class="dlg" id="dlg" role="dialog" aria-modal="true"></div></div>
+
+<script>
+/* ---------- 仮データ ---------- */
+// [年, 年間リターン%, 年の途中の最大下落%, 名前]  ※概算・ベータ版用
+const MKT=[[1970,4.0,-20,""],[1971,14.3,-10,""],[1972,19.0,-5,""],[1973,-14.7,-23,"オイルショック前夜"],[1974,-26.5,-37,"オイルショック"],[1975,37.2,-10,""],[1976,23.8,-8,""],[1977,-7.2,-15,""],[1978,6.6,-13,""],[1979,18.4,-10,""],
+[1980,32.4,-17,""],[1981,-4.9,-18,""],[1982,21.4,-16,""],[1983,22.5,-7,""],[1984,6.3,-12,""],[1985,32.2,-6,""],[1986,18.5,-9,""],[1987,5.2,-33,"ブラックマンデー"],[1988,16.8,-7,""],[1989,31.5,-8,""],
+[1990,-3.1,-20,"湾岸危機"],[1991,30.5,-6,""],[1992,7.6,-6,""],[1993,10.1,-5,""],[1994,1.3,-9,""],[1995,37.6,-3,""],[1996,23.0,-8,""],[1997,33.4,-11,"アジア通貨危機"],[1998,28.6,-19,"ロシア危機"],[1999,21.0,-12,""],
+[2000,-9.1,-17,"ITバブルのピーク"],[2001,-11.9,-27,"ITバブル崩壊"],[2002,-22.1,-34,"ITバブル崩壊（底）"],[2003,28.7,-14,""],[2004,10.9,-8,""],[2005,4.9,-7,""],[2006,15.8,-8,""],[2007,5.5,-10,""],[2008,-37.0,-48,"リーマンショック"],[2009,26.5,-27,"リーマンショックの二番底"],
+[2010,15.1,-16,""],[2011,2.1,-19,"欧州債務危機"],[2012,16.0,-10,""],[2013,32.4,-6,""],[2014,13.7,-7,""],[2015,1.4,-12,""],[2016,12.0,-10,""],[2017,21.8,-3,""],[2018,-4.4,-20,""],[2019,31.5,-7,""],
+[2020,18.4,-34,"コロナショック"],[2021,28.7,-5,""],[2022,-18.1,-25,"インフレと利上げ"],[2023,26.3,-10,""],[2024,25.0,-8,""]];
+const CRASH=-25; // 年の途中で−25%以上下がった年を「暴落」とする
+const JOB={big:{n:"会社員（大企業）",lump:2500,pen:200,sal:650},sme:{n:"会社員（中小企業）",lump:1100,pen:180,sal:450},gov:{n:"公務員",lump:2100,pen:200,sal:600},self:{n:"自営業",lump:0,pen:80,sal:500},free:{n:"フリーランス",lump:0,pen:80,sal:400}};
+const SHOP=[
+ {id:"fund",nm:"全世界株の投資信託",d:"世界中の株にまとめて投資。値動きは過去の相場どおり",kind:"amt"},
+ {id:"single",nm:"話題の個別株に集中投資",d:"相場より大きく動く。倒産すると紙くずに",kind:"amt"},
+ {id:"gold",nm:"金（ゴールド）",d:"株が暴落する年に強いことが多い",kind:"amt"},
+ {id:"crypto",nm:"暗号資産",d:"1年で3倍も、−80%もある",kind:"amt"},
+ {id:"home",nm:"都心のタワーマンション",d:"9,000万円。住宅ローンを組んで買える（諸費用7%は現金）。家賃はなくなるが、管理費と税金が年60万円",kind:"loan",price:9000,yrs:35,mult:7},
+ {id:"car",nm:"高級スポーツカー",d:"2,500万円を現金で。毎年15%値下がりし、維持費は年80万円",kind:"fix",price:2500},
+ {id:"apt",nm:"投資用アパート1棟",d:"7,000万円。ローンを組んで買える（諸費用7%は現金）。満室なら家賃収入は年560万円",kind:"loan",price:7000,yrs:30,mult:10}
+];
+
+/* 子ども1人の年間費用（万円）：学習費は「子供の学習費調査 令和5年度」の公立の学習費総額、大学は私立の目安。食費などは毎月の支出に含むので、ここは学費＋子ども用の雑費20万円 */
+function eduCost(a){if(a<0||a>=22)return 0;const g=a<=2?0:a<=5?18.5:a<=11?33.6:a<=14?54.2:a<=17?59.8:150;return g+20}
+/* ---------- 便利関数 ---------- */
+document.addEventListener("click",e=>{if(e.target.id==="srcLink"){e.preventDefault();const d=document.getElementById("sources");d.open=true;d.scrollIntoView({behavior:"smooth",block:"start"})}});
+const $=s=>document.querySelector(s);
+// 乱数：ゲームの世界（相場・出来事）はシード番号から決まる。同じシードなら同じ世界になる
+const framed=(()=>{try{return window.top!==window.self}catch(e){return true}})();
+let RNG=null;
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function stream(...k){let h=(S.seed>>>0)^0x9e3779b9;for(const x of k){h=Math.imul(h^(x+0x7f4a7c15),2654435761);h^=h>>>13}return mulberry(h)}
+const rnd=()=>RNG?RNG():Math.random();
+function randn(){let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function wpick(a){const t=a.reduce((s,x)=>s+x[1],0);let r=rnd()*t;for(const x of a){if((r-=x[1])<0)return x[0]}return a[0][0]}
+function fmt(v){const s=v<0?"−":"";v=Math.abs(v);if(v>=10000)return s+(v/10000).toFixed(2)+"億円";return s+Math.round(v).toLocaleString()+"万円"}
+function pct(x){return (x>=0?"+":"−")+Math.abs(Math.round(x*100))+"%"}
+function pay(P,r,n){return P*r/(1-Math.pow(1+r,-n))}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const NAMES={fund:"投資信託",single:"個別株",gold:"金",crypto:"暗号資産",home:"タワーマンション",car:"スポーツカー",apt:"アパート"};
+
+let S=null,timer=null,waiting=false,resumeAuto=false,view="month";
+
+function net(){const h=S.home?S.home.value-S.home.loan:0,a=S.apt?S.apt.value-S.apt.loan:0,c=S.car?S.car.value:0;
+  return S.cash+S.fund+S.single+S.gold+S.crypto+h+a+c-S.debt}
+
+/* ---------- 毎月の支出（2人以上世帯の目安・仮の値） ---------- */
+const EXP=[["food","食費",8.5,5.2],["rent","家賃（持ち家なら0）",9,6.5],["util","水道・光熱費",2.4,1.2],["tel","通信費",1.2,0.7],["ins","保険",1.5,0.8],
+ ["trans","車・交通費",2.5,1.2],["fun","趣味・娯楽",3,2],["social","交際費・旅行",2.5,1.5],["daily","日用品・衣服",2,1.2],["other","その他",2,1.2]];
+$("#exFields").innerHTML=EXP.map(e=>`<div class="field"><label for="ex_${e[0]}">${e[1]}</label><input id="ex_${e[0]}" type="number" min="0" step="0.1" value="${e[2]}"><span class="unit">万円／月</span></div>`).join("");
+const exMode=()=>document.querySelector('input[name=exmode]:checked').value;
+function exBase(e){return $("#spouse").value==="none"?e[3]:e[2]}
+function fillExp(){const m=exMode();EXP.forEach(e=>{const el=$("#ex_"+e[0]);
+  if(m==="avg")el.value=exBase(e);else if(m==="rand")el.value=Math.round(exBase(e)*Math.exp(randn()*.35)*10)/10;
+  el.readOnly=mode()==="rand"});exTotal()}
+function customRows(){return [...document.querySelectorAll("#exCustom .cx")].map(r=>({n:r.querySelector(".cn").value.trim()||"追加の支出",v:Number(r.querySelector(".cv").value)||0}))}
+let cxId=0;
+function addCustom(n="",v=""){if(document.querySelectorAll("#exCustom .cx").length>=8)return;const id=++cxId;
+  $("#exCustom").insertAdjacentHTML("beforeend",`<div class="cx" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="cn" id="cn${id}" aria-label="項目名" placeholder="項目名（例：ペット、ジム、仕送り）" value="${esc(n)}" style="flex:2;min-width:140px;font:inherit;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink)"><input class="cv" id="cv${id}" type="number" min="0" step="0.1" aria-label="金額（万円／月）" placeholder="万円／月" value="${v}" style="flex:1;min-width:90px;font:inherit;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink)"><span class="unit">万円／月</span><button type="button" class="btn ghost" style="padding:5px 10px;font-size:12px" aria-label="この項目を消す">消す</button></div>`);
+  const row=$("#exCustom").lastElementChild;row.querySelector("button").onclick=()=>{row.remove();exTotal()};exTotal()}
+$("#exAdd").onclick=()=>addCustom();
+$("#exCustom").addEventListener("input",()=>exTotal());
+function exTotal(){const t=EXP.reduce((s,e)=>s+(Number($("#ex_"+e[0]).value)||0),0)+customRows().reduce((s,r)=>s+r.v,0);$("#exTotal").textContent=`合計 ${t.toFixed(1)}万円／月（年${Math.round(t*12)}万円）。子どもの教育費は、人数と年齢から別に計算します。`}
+document.querySelectorAll('input[name=exmode]').forEach(i=>i.addEventListener("change",fillExp));
+// 「平均」「ランダム」で入れた後でも、欄を書き換えたら「自分で入力」に切り替わる
+$("#exFields").addEventListener("input",()=>{const sf=document.querySelector('input[name=exmode][value=self]');if(!sf.checked)sf.checked=true;exTotal()});
+$("#spouse").addEventListener("change",()=>{if(exMode()!=="self")fillExp()});
+
+/* ---------- シンプル版／詳細版 ---------- */
+const lv=()=>document.querySelector('input[name=lv]:checked').value;
+document.querySelectorAll('input[name=lv]').forEach(i=>i.addEventListener("change",()=>{$("#f").classList.toggle("simple",lv()==="simple");if(lv()==="detail"&&mode()!=="rand")syncFromSimple()}));
+// シンプル版の4項目から、詳細版の欄を埋める（年収・支出・つみたてなどはランダム）
+function syncFromSimple(){
+  const age=Number($("#age").value)||35,job=$("#job").value,fam=$("#sFam").value,tot=Number($("#sTotal").value)||0;
+  const curve=.7+Math.min(Math.max(age-22,0),30)*.02;
+  $("#salary").value=Math.max(200,Math.round(JOB[job].sal*curve*Math.exp(randn()*.12)/10)*10);
+  $("#retire").value=Math.max(65,age+1);
+  const fr=.2+rnd()*.3;$("#fund").value=Math.round(tot*fr/10)*10;$("#cash").value=Math.round(tot*(1-fr)/10)*10;
+  $("#tsumi").value=wpick([[0,30],[24,20],[36,25],[60,25]]);
+  $("#spouse").value=fam==="single"?"none":(rnd()<.7?"work":"home");
+  $("#spouseSal").value=$("#spouse").value==="work"?Math.round((200+rnd()*200)/10)*10:0;$("#side").value=0;
+  $("#kids").value=fam==="k1"?1:fam==="k2"?2:0;
+  $("#kidage").value=Math.max(0,Math.min(18,Math.floor(rnd()*Math.max(1,age-26))));
+  EXP.forEach(e=>$("#ex_"+e[0]).value=Math.round(exBase(e)*Math.exp(randn()*.15)*10)/10);exTotal();
+}
+
+/* ---------- 文章から初期値を読み取る ---------- */
+const KN={"一":1,"二":2,"三":3,"四":4,"五":5,"ひと":1,"ふた":2};
+function norm(t){return t.replace(/[０-９．，]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/(\d),(\d)/g,"$1$2").replace(/\s+/g," ")}
+// 「1億2000万」「1.5億」「800万円」「30万」→ 万円
+function man(str){const m=str.match(/(\d+(?:\.\d+)?)\s*億\s*(\d+(?:\.\d+)?)?\s*万?|(\d+(?:\.\d+)?)\s*万|(\d+)\s*円/);if(!m)return null;
+  if(m[1])return Math.round(parseFloat(m[1])*10000+(m[2]?parseFloat(m[2]):0));if(m[3])return parseFloat(m[3]);return parseFloat(m[4])/10000}
+const AMT="(\\d+(?:\\.\\d+)?\\s*億\\s*(?:\\d+(?:\\.\\d+)?)?\\s*万?|\\d+(?:\\.\\d+)?\\s*万|\\d+\\s*円)";
+function find(t,keys,gap=12){const re=new RegExp("(?:"+keys+")[^。\\d月年]{0,"+gap+"}(月|年)?[^。\\d]{0,4}"+AMT);let m=t.match(re);
+  if(m)return {v:man(m[2]),per:m[1]||"",i:m.index,len:m[0].length};
+  // 「毎月3万円つみたて」のように金額が先に来る書き方
+  const re2=new RegExp("(月|年)?[^。\\d]{0,1}"+AMT+"[^。\\d]{0,5}?(?:"+keys+")");m=t.match(re2);
+  if(m)return {v:man(m[2]),per:m[1]||"",i:m.index,len:m[0].length};return null}
+function parseText(raw){
+  let t=norm(raw);const r={},note=[];
+  // 年齢（子どもの年齢・退職年齢は除く）
+  const ageRe=/(\d{2})\s*歳/g;let m;const kidAges=[];
+  while((m=ageRe.exec(t))){const before=t.slice(Math.max(0,m.index-8),m.index),after=t.slice(m.index,m.index+12);
+    if(/子|娘|息子|長男|長女|次男|次女|孫/.test(before))continue;
+    if(/(で|に|まで)?\s*(退職|定年|リタイア|引退|仕事をやめ|FIRE|早期退職)/.test(after)||/(退職|定年|リタイア|引退)[^。]{0,4}$/.test(before)){r.retire=+m[1];continue}
+    if(r.age===undefined&&+m[1]>=18&&+m[1]<=80)r.age=+m[1]}
+  const kRe=/(子|娘|息子|長男|長女|次男|次女)[^。]{0,8}?(\d{1,2})\s*歳/g;while((m=kRe.exec(t)))kidAges.push(+m[2]);
+  const ka=t.match(/(\d{1,2})\s*歳\s*(と|、|,)\s*(\d{1,2})\s*歳/);if(ka&&/子|娘|息子/.test(t.slice(Math.max(0,ka.index-15),ka.index))){kidAges.push(+ka[1],+ka[3])}
+  // 子どもの人数
+  const kc=t.match(/(子ども|子供|こども|子)[がはも]?\s*(\d|一|二|三|四|ひと|ふた)\s*(人|り)/);
+  if(/子(ども|供)?(は)?(なし|いない|いません|がいない)/.test(t))r.kids=0;
+  else if(kc)r.kids=+(KN[kc[2]]||kc[2]);else if(kidAges.length)r.kids=new Set(kidAges).size;
+  else{const n=(t.match(/息子|娘|長男|長女|次男|次女/g)||[]).length;if(n)r.kids=Math.min(4,n)}
+  const stage=[["大学生",19],["高校生",16],["中学生",13],["小学生",9],["幼稚園|保育園",4],["赤ちゃん|乳児",0]];
+  for(const [k,a] of stage)if(new RegExp("("+k+")[^。]{0,3}(の)?(子|娘|息子|長男|長女)|(子|娘|息子)[^。]{0,4}("+k+")").test(t))kidAges.push(a);
+  if(kidAges.length){r.kidage=Math.max(...kidAges);if(r.kids===undefined)r.kids=Math.min(4,kidAges.length)}
+  // 家族
+  if(/独身|ひとり暮らし|一人暮らし|未婚|シングル|単身/.test(t))r.spouse="none";
+  else if(/専業主婦|専業主夫/.test(t))r.spouse="home";
+  else if(/共働き|妻[^。]{0,12}(働|パート|正社員|会社員|公務員|年収|収入)|夫[^。]{0,12}(働|パート|正社員|会社員|公務員|年収|収入)|配偶者[^。]{0,10}(年収|収入)/.test(t))r.spouse="work";
+  else if(/妻|夫|配偶者|奥さん|嫁|旦那|結婚|既婚|夫婦/.test(t))r.spouse="home";
+  const sp=find(t,"妻|夫|配偶者|奥さん|嫁|旦那|パートナー",16);
+  if(sp&&r.spouse==="work"){r.spouseSal=Math.round(sp.v*(/月/.test(sp.per)?12:1))}
+  // 職業
+  if(/公務員|役所|市役所|県庁|教員|教師|自衛官|警察官/.test(t))r.job="gov";
+  else if(/フリーランス|フリーで/.test(t))r.job="free";
+  else if(/自営|個人事業|お店を|店を経営|経営者|社長/.test(t))r.job="self";
+  else if(/大企業|大手|上場/.test(t))r.job="big";
+  else if(/会社員|サラリーマン|中小|会社勤め|正社員|派遣|契約社員/.test(t))r.job="sme";
+  // 年収・月収
+  let x=find(t,"年収|額面",6);
+  if(x&&!/妻|夫|配偶者|奥さん|嫁|旦那|パートナー/.test(t.slice(Math.max(0,x.i-12),x.i)))r.salary=Math.round(x.v);
+  else{x=find(t,"手取り|月収|給料|給与",6);if(x){const net=/手取り/.test(t.slice(x.i,x.i+x.len)),yr=/年/.test(x.per);r.salary=Math.round(yr?(net?x.v/.78:x.v):(net?x.v*12/.78:x.v*12))}}
+  x=find(t,"副業|副収入|不労所得",8);if(x)r.side=Math.round(x.v*(/月/.test(x.per)?12:1));
+  // つみたて（先に読んで、投資額と混ざらないようにする）
+  x=find(t,"つみたて|積立|積み立て",10);
+  if(x){r.tsumi=Math.round(x.v*(/年/.test(x.per)?1:12));t=t.slice(0,x.i)+"＿".repeat(x.len)+t.slice(x.i+x.len)}
+  x=find(t,"貯金|預金|現金|貯蓄",10);if(x)r.cash=Math.round(x.v);
+  x=find(t,"NISA|ニーサ|投資信託|投信|株|iDeCo|イデコ|投資|運用",12);if(x)r.fund=Math.round(x.v);
+  if(r.cash===undefined&&r.fund===undefined){x=find(t,"資産|金融資産|総資産",8);if(x){r.sTotal=Math.round(x.v);r.cash=Math.round(x.v*.7);r.fund=Math.round(x.v*.3)}}
+  // 毎月の支出
+  const ex={};const exk={rent:"家賃|住宅ローン|ローン返済",food:"食費|食事代",util:"光熱費|電気代|水道光熱",tel:"通信費|携帯|スマホ",ins:"保険",trans:"車|ガソリン|交通費",fun:"趣味|娯楽|推し活",social:"交際費|飲み会|旅行",daily:"日用品|服|衣服",other:"その他|雑費"};
+  for(const k in exk){x=find(t,exk[k],8);if(x)ex[k]=Math.round(x.v*(/年/.test(x.per)?1/12:1)*10)/10}
+  x=find(t,"生活費|月の支出|毎月の支出|出費",6);if(x)r.living=x.v*(/年/.test(x.per)?1/12:1);
+  if(Object.keys(ex).length)r.exp=ex;
+  return r;
+}
+// ゲーム中の見直し：文章から、支出・収入・つみたての変更を読み取る
+function parseRevise(raw){
+  const t=norm(raw);const exp={...S.exp},extra=S.extra.map(r=>({...r})),out={changes:[]};
+  const exk={rent:"家賃|住宅ローン|ローン返済",food:"食費|食事代|外食",util:"光熱費|電気代|ガス代|水道光熱",tel:"通信費|携帯|スマホ",ins:"保険",trans:"車|ガソリン|交通費",fun:"趣味|娯楽|推し活",social:"交際費|飲み会|旅行",daily:"日用品|服|衣服",other:"その他|雑費"};
+  const nm=k=>EXP.find(e=>e[0]===k)[1].replace(/（.*）/,"");
+  const clauses=t.split(/[。\n!！?？]|、(?=[^、]*(?:\d|やめ|なく|解約|手放|ゼロ))/).map(c=>c.trim()).filter(Boolean);
+  for(const c of clauses){
+    const stop=/やめ|なくす|なくな|解約|手放|ゼロに|0円に|卒業/.test(c);
+    const am=c.match(new RegExp("(?:(毎月|月|年間|年)[^\\d]{0,2})?"+AMT));
+    let v=am?man(am[2])*(/年/.test(am[1]||"")&&!/年収/.test(c)?1/12:1):null;
+    const rel=am&&new RegExp(AMT+"\\s*円?\\s*(ほど|くらい|ぐらい)?\\s*(減|下げ|節約|安く|増|上げ|高く|アップ|ダウン)").test(c)&&!new RegExp(AMT+"\\s*円?\\s*に").test(c);
+    const down=/減|下げ|節約|安く|ダウン/.test(c);
+    // 収入・つみたて
+    if(/年収|給料|月収|昇給|転職/.test(c)&&am){const val=/月収|給料/.test(c)&&!/年/.test(am[1]||"")?man(am[2])*12:man(am[2]);
+      const to=rel?S.salary+(down?-val:val):val;out.salary=Math.max(0,Math.round(to));out.changes.push(["年収",S.salary,out.salary,"万円／年"]);continue}
+    if(/副業|副収入/.test(c)){const val=stop?0:am?man(am[2])*(/月/.test(am[1]||"")?12:1):null;if(val!==null){out.side=Math.round(val);out.changes.push(["副業・その他の収入",S.side,out.side,"万円／年"])}continue}
+    if(/つみたて|積立|積み立て/.test(c)){const val=stop?0:am?man(am[2])*(/年/.test(am[1]||"")?1:12):null;if(val!==null){const to=rel?S.tsumi+(down?-val:val):val;out.tsumi=Math.max(0,Math.round(to));out.changes.push(["つみたて",S.tsumi,out.tsumi,"万円／年"])}continue}
+    // 決まった支出の項目
+    let hit=false;
+    for(const k in exk){if(new RegExp(exk[k]).test(c)){hit=true;const old=exp[k];
+      if(k==="trans"&&/車/.test(c)&&stop&&!am)exp[k]=Math.round(exp[k]*.3*10)/10;
+      else if(stop&&!am)exp[k]=0;
+      else if(am){exp[k]=Math.max(0,Math.round((rel?old+(down?-v:v):v)*10)/10)}
+      else if(/半分/.test(c))exp[k]=Math.round(old/2*10)/10;
+      if(exp[k]!==old)out.changes.push([nm(k),old,exp[k],"万円／月"]);break}}
+    if(hit)continue;
+    // それ以外は「追加の支出」として扱う（ジム、ペット、仕送りなど）
+    const name=(c.match(/^([^\d、,。をはがにでも]{1,12}?)(を|は|が|に|で|の|も)/)||[])[1];
+    if(!name)continue;
+    const cur=extra.find(r=>r.n===name);
+    if(cur){const old=cur.v;cur.v=stop?0:am?Math.max(0,Math.round((rel?old+(down?-v:v):v)*10)/10):old;if(cur.v!==old)out.changes.push([name,old,cur.v,"万円／月"])}
+    else if(am&&!stop){extra.push({n:name,v:Math.round(v*10)/10});out.changes.push([name+"（追加）",0,Math.round(v*10)/10,"万円／月"])}
+  }
+  out.changes=out.changes.filter(c=>Math.abs(c[1]-c[2])>.001);
+  if(out.tsumi===S.tsumi)delete out.tsumi;if(out.salary===Math.round(S.salary))delete out.salary;if(out.side===S.side)delete out.side;
+  out.exp=exp;out.extra=extra.filter(r=>r.v>0);return out}
+let rvPending=null;
+function showRevise(){const r=parseRevise($("#rvText").value||"");rvPending=r;const P=$("#rvPrev");P.hidden=false;
+  if(!r.changes.length){P.innerHTML=`<p class="out" style="margin:0;font-size:13px">変更を読み取れませんでした。「食費を月6万に」「ジムを月1万で始める」「つみたてを月5万に増やす」のように、項目と金額を書いてみてください。</p>`;return}
+  const f=(v,u)=>(u.includes("月")?v.toFixed(1)+"万円":fmt(v))+(u.includes("年")?"／年":"／月");
+  P.innerHTML=`<table><tbody>${r.changes.map(c=>`<tr class="chg"><td>${esc(c[0])}</td><td class="r">${f(c[1],c[3])}</td><td>→</td><td class="r"><b>${f(c[2],c[3])}</b></td></tr>`).join("")}</tbody></table>
+    <p class="muted" style="font-size:12px;margin:6px 0">支出とつみたては来月から、年収と副業の収入は来年1月から反映されます。${S.replay?"<br><b>記録の再生はここで終わり、ここから先は自分の操作になります。</b>":""}</p>
+    <div class="ctrl" style="margin:0"><button class="btn" id="rvOk">この内容で反映する</button><button class="btn ghost" id="rvNo">やめる</button></div>`;
+  $("#rvNo").onclick=()=>{P.hidden=true;rvPending=null};
+  $("#rvOk").onclick=()=>{const r=rvPending;if(!r)return;const p={exp:r.exp,extra:r.extra};["salary","side","tsumi"].forEach(k=>{if(r[k]!==undefined)p[k]=r[k]});
+    if(S.retired){delete p.salary}
+    userAct();doParam(p);S.hiRows=new Set(r.changes.map(c=>c[0].replace("（追加）","")));$("#rvText").value="";P.hidden=true;rvPending=null;render()}}
+$("#rvGo").onclick=()=>{if(!S||S.dead)return;stopAuto();showRevise()};
+function setField(id,v){const el=$("#"+id);if(!el||v===undefined||v===null||Number.isNaN(v))return false;const old=el.value;el.value=v;
+  if(String(old)!==String(el.value)){el.closest(".field").classList.add("upd");return true}return false}
+function clearUpd(){document.querySelectorAll(".field.upd").forEach(f=>f.classList.remove("upd"))}
+$("#nlClear").onclick=()=>{clearUpd();$("#nlOut").hidden=true};
+document.addEventListener("input",e=>{const f=e.target.closest&&e.target.closest("#f .field.upd");if(f&&e.target.id!=="nlText")f.classList.remove("upd")});
+$("#nlGo").onclick=()=>{
+  const r=parseText($("#nlText").value||"");clearUpd();
+  // 自分で入力モード・詳細版に切り替えて、変わった欄が見えるようにする
+  document.querySelector('input[name=mode][value=self]').checked=true;setMode();
+  const detailKeys=["salary","retire","cash","fund","tsumi","spouseSal","side","kidage","exp","living"];
+  const needDetail=detailKeys.some(k=>r[k]!==undefined);
+  if(needDetail){document.querySelector('input[name=lv][value=detail]').checked=true;$("#f").classList.remove("simple")}
+  document.querySelector('input[name=exmode][value=self]').checked=true;fillExp();
+  const got=[];const L={age:"年齢",job:"職業",salary:"年収",retire:"仕事をやめる年齢",cash:"現金・預金",fund:"投資",tsumi:"つみたて",spouse:"配偶者",spouseSal:"配偶者の年収",side:"副業・その他の収入",kids:"子どもの人数",kidage:"一番上の子の年齢"};
+  const show={age:v=>v+"歳",job:v=>JOB[v].n,salary:v=>fmt(v),retire:v=>v+"歳",cash:v=>fmt(v),fund:v=>fmt(v),tsumi:v=>fmt(v)+"／年",spouse:v=>({none:"なし",work:"あり（共働き）",home:"あり（専業）"})[v],spouseSal:v=>fmt(v),side:v=>fmt(v)+"／年",kids:v=>v+"人",kidage:v=>v+"歳"};
+  for(const k in L)if(r[k]!==undefined){setField(k,r[k]);got.push(L[k]+" "+show[k](r[k]))}
+  if(r.spouse==="none"){setField("spouseSal",0);setField("kids",r.kids??0)}
+  if(r.spouse&&r.spouse!=="work")setField("spouseSal",0);
+  // シンプル版の欄もそろえる
+  setField("sTotal",(Number($("#cash").value)||0)+(Number($("#fund").value)||0));
+  const sp=$("#spouse").value,kd=Number($("#kids").value)||0;setField("sFam",sp==="none"?"single":kd===0?"couple":kd===1?"k1":"k2");
+  if(r.job&&r.salary===undefined)setField("salary",JOB[r.job].sal);
+  // 支出：書いた項目はその値、「生活費◯万」だけなら平均の割合で配分
+  if(r.living&&!r.exp){const keys=EXP.filter(e=>e[0]!=="rent"),tot=keys.reduce((s,e)=>s+exBase(e),0);keys.forEach(e=>setField("ex_"+e[0],Math.round(exBase(e)/tot*r.living*10)/10));got.push("生活費 月"+r.living+"万円（項目ごとに配分）")}
+  if(r.exp)for(const k in r.exp){setField("ex_"+k,r.exp[k]);got.push(EXP.find(e=>e[0]===k)[1].replace(/（.*）/,"")+" 月"+r.exp[k]+"万円")}
+  exTotal();
+  const o=$("#nlOut");o.hidden=false;
+  o.innerHTML=got.length?`<b>読み取った内容</b><br>${got.map(g=>`<span class="chip2">${esc(g)}</span>`).join("")}<br><span class="muted">色の付いた欄が文章から入った値です。読み取れなかった項目は今の値のままなので、確かめてから始めてください。</span>`
+    :`<span class="out">数字を読み取れませんでした。「35歳」「年収500万円」「貯金300万円」「家賃は月8万円」のように書いてみてください。</span>`;
+  if(got.length){const f=document.querySelector(".field.upd");if(f)f.scrollIntoView({block:"nearest",behavior:"smooth"})}
+};
+
+/* ---------- 始め方：自分で入力／ランダム ---------- */
+const FIELDS=["age","job","salary","retire","cash","fund","tsumi","spouse","spouseSal","side","kids","kidage","sTotal","sFam"];
+const mode=()=>document.querySelector('input[name=mode]:checked').value;
+function setMode(){const r=mode()==="rand";$("#gacha").hidden=!r;
+  FIELDS.forEach(id=>{const el=$("#"+id);if(el.tagName==="SELECT")el.disabled=r;else el.readOnly=r});
+  document.querySelectorAll('input[name=exmode]').forEach(i=>i.disabled=r);
+  if(r){document.querySelector('input[name=exmode][value=rand]').checked=true;roll()}
+  else{document.querySelector('input[name=exmode][value=self]').checked=true;fillExp()}}
+document.querySelectorAll('input[name=mode]').forEach(i=>i.addEventListener("change",setMode));
+$("#reroll").onclick=roll;
+$("#job").addEventListener("change",e=>{if(mode()==="self")$("#salary").value=JOB[e.target.value].sal});
+fillExp();
+function roll(){
+  const age=Math.round(22+Math.pow(rnd(),1.2)*38);
+  const job=wpick([["sme",45],["big",20],["gov",10],["self",10],["free",15]]);
+  const curve=.7+Math.min(age-22,30)*.02;
+  const salary=Math.max(200,Math.round(JOB[job].sal*curve*Math.exp(randn()*.22)/10)*10);
+  const spouse=rnd()<(age<30?.3:.65)?(rnd()<.7?"work":"home"):"none";
+  let kids=0,kidage=0;
+  if(spouse!=="none"&&age>=25){kids=wpick([[0,25],[1,30],[2,35],[3,10]]);kidage=Math.min(25,Math.floor(rnd()*(age-24)))}
+  const med=age<30?100:age<40?300:age<50?500:age<60?800:1200;
+  const tot=Math.round(med*Math.exp(randn()*.8)/10)*10,fr=rnd()*.6;
+  const cash=Math.round(tot*(1-fr)/10)*10,fund=Math.round(tot*fr/10)*10;
+  const tsumi=rnd()<.45?0:wpick([[12,20],[24,25],[36,20],[60,20],[120,15]]);
+  let retire=wpick([[60,30],[65,50],[70,20]]);if(retire<=age)retire=Math.min(80,age+5);
+  const sFam=spouse==="none"?"single":kids===0?"couple":kids===1?"k1":"k2";
+  if(kids>2)kids=2;
+  const spouseSal=spouse==="work"?Math.round((150+rnd()*300)/10)*10:0,side=rnd()<.15?Math.round((20+rnd()*150)/10)*10:0;
+  const set={age,job,salary,retire,cash,fund,tsumi,spouse,spouseSal,side,kids,kidage,sTotal:cash+fund,sFam};
+  FIELDS.forEach(id=>$("#"+id).value=set[id]);fillExp();
+  $("#gachaText").innerHTML=`<b>${age}歳・${JOB[job].n}</b>　${spouse==="none"?"独身":"既婚（"+(spouse==="work"?"共働き":"専業")+"）"}${kids?"・子ども"+kids+"人":""}・資産${fmt(cash+fund)}として生まれ変わりました`;
+}
+
+/* ---------- はじめる ---------- */
+$("#f").addEventListener("submit",e=>{e.preventDefault();
+  if(lv()==="simple"&&mode()!=="rand")syncFromSimple();
+  const v=id=>Number($("#"+id).value)||0;
+  const input={lv:lv(),mode:mode(),age:Math.min(70,Math.max(20,v("age"))),job:$("#job").value,salary:v("salary"),retire:v("retire"),cash:v("cash"),fund:v("fund"),
+    tsumi:v("tsumi"),spouse:$("#spouse").value,spouseSal:v("spouseSal"),side:v("side"),extra:lv()==="detail"?customRows().filter(r=>r.v>0):[],kids:Math.min(4,Math.max(0,v("kids"))),kidage:v("kidage"),
+    exp:Object.fromEntries(EXP.map(e=>[e[0],Number($("#ex_"+e[0]).value)||0]))};
+  startGame(input,(Math.random()*4294967296)>>>0,null);
+});
+function startGame(input,seed,replay){
+  if(left()<=0){updLimit();return}
+  usePlay();track(replay?"replay":"start");
+  stopAuto();closeDlg();waiting=false;
+  document.querySelector(".wrap").classList.toggle("simple-game",input.lv==="simple");
+  const age=input.age;const kids=[];for(let i=0;i<input.kids;i++)kids.push(input.kidage-i*2);
+  S={seed,input,startAge:age,age,year:2026,t:0,m:0,mo:0,Y:null,job:input.job,salary:input.salary,retire:Math.max(age+1,input.retire),
+    spouse:input.spouse,spouseInc:input.spouse==="work"?(input.spouseSal??300):0,side:input.side||0,extra:(input.extra||[]).map(r=>({...r})),kids,
+    cash:input.cash,fund:input.fund,single:0,gold:0,crypto:0,home:null,car:null,apt:null,debt:0,
+    tsumi:input.tsumi,tsumiOn:true,retired:false,exp:{...input.exp},
+    hist:[],ghosts:[],dec:[],book:[],acts:[],replay,compare:null,
+    st:{short:0,carCost:0,stopTsumi:0,crashes:0,peak:0,bought:[],inherit:false,singleIn:0,cryptoIn:0,bust:0,unemp:0},dead:false};
+  S.hist.push({x:age,net:net(),crash:false,ye:true});S.st.peak=net();
+  $("#setup").hidden=true;$("#result").hidden=true;$("#game").hidden=false;
+  addBook(S.age,[["ev",(replay?"記録した人生を最初から再生します。":input.mode==="rand"?"ランダムで決まった人生がスタート。":"人生スタート。")+JOB[S.job].n+"、年収"+fmt(S.salary)+"（シード番号 "+seed+"）",0]]);
+  render();window.scrollTo(0,0);
+  if(!replay)startDialog();
+}
+
+/* ---------- 1年のはじめ：その年の相場と収支を決める ---------- */
+function yearStart(){
+  RNG=stream(S.t,1);
+  const m=MKT[Math.floor(rnd()*MKT.length)];
+  const y={yr:m[0],r:m[1]/100,dip:m[2]/100,name:m[3]};
+  const crash=m[2]<=CRASH,b=2+Math.floor(rnd()*8);
+  // 月ごとの値動き：b月目に底、年末に年間リターンになるように配分
+  const L1=Math.log(1+y.dip),L2=Math.log((1+y.r)/(1+y.dip));
+  const f=[];const n1=[],n2=[];for(let i=0;i<12;i++)(i<=b?n1:n2).push(randn()*.02);
+  const a1=n1.reduce((s,x)=>s+x,0)/n1.length,a2=n2.length?n2.reduce((s,x)=>s+x,0)/n2.length:0;
+  for(let i=0;i<12;i++)f.push(i<=b?L1/(b+1)+n1[i]-a1:L2/(11-b)+n2[i-b-1]-a2);
+  RNG=stream(S.t,2);
+  const lines=[];const infl=Math.pow(1.02,S.t);
+  // 収入
+  let inc=0,ownM=0;
+  if(S.fired&&S.spouseInc>0&&S.age>=S.retire){S.spouseInc=0;lines.push(["ev","配偶者も仕事をやめました",0])}
+  if(!S.retired&&S.age>=S.retire){S.retired=true;S.spouseInc=0;const Lp=JOB[S.job].lump;
+    if(Lp){S.cash+=Lp;lines.push(["in","退職金",Lp])}lines.push(["ev","仕事をやめました",0]);
+    if(S.tsumiOn&&S.tsumi>0){S.tsumiOn=false;lines.push(["ev","つみたてを終了",0])}}
+  if(!S.retired){
+    let sal=S.salary;
+    if(S.job!=="gov"&&rnd()<(crash?.06:.02)){sal=0;S.st.unemp++;lines.push(["ev","失業。この1年は収入がありません",0]);S.salary*=.9}
+    else if(crash){sal*=.88;lines.push(["ev","不景気でボーナスが減りました",0])}
+    else if(S.age<50&&rnd()<.08){S.salary*=1.1;sal=S.salary;lines.push(["ev","昇進！年収が10%上がりました",0])}
+    inc=(sal+S.spouseInc)*.78;ownM=sal*.78/12;
+  }else if(S.spouseInc>0)inc=S.spouseInc*.78;
+  if(S.age>=65)inc+=(80+(JOB[S.job].pen-80)*(S.penF??1)+(S.spouse!=="none"?80:0))*.9;
+  if(S.side>0&&!(S.retired&&S.age>=70))inc+=S.side*.8;
+  if(inc>0)lines.push(["in","手取りの収入"+(S.age>=65?"（年金を含む）":""),inc]);
+  // 支出
+  const ex=S.exp;const base=(EXP.reduce((s,e)=>e[0]==="rent"?s:s+ex[e[0]],0)+S.extra.reduce((s,r)=>s+r.v,0))*12*infl*(S.retired?.85:1);
+  lines.push(["out","生活費（毎月"+fmt(base/12)+"）",base]);
+  let living=base;
+  if(!S.home&&ex.rent>0){const r=ex.rent*12*infl;living+=r;lines.push(["out","家賃",r])}
+  let edu=0;S.kids.forEach(k=>{const a=k+S.t;edu+=eduCost(a)*infl;if(a===22)lines.push(["ev","子どもが独立しました",0]);if(a===18)lines.push(["ev","子どもが大学に進学しました",0])});
+  if(edu>0){living+=edu;lines.push(["out","子どもの学費など",edu])}
+  let flow=inc-living,tin=inc;
+  if(S.home){const p=(S.home.loan>0?S.home.pay:0)+60;flow-=p;lines.push(["out","住宅ローンと管理費・税金",p])}
+  if(S.car){flow-=80;S.st.carCost+=80;lines.push(["out","スポーツカーの維持費",80])}
+  if(S.apt){const occ=Math.max(.5,Math.min(1,.9+randn()*.08)),rent=560*occ,rep=rnd()<.15?150+rnd()*300:20,p=S.apt.loan>0?S.apt.pay:0;
+    flow+=rent-p-rep-40;tin+=rent;lines.push(["in","アパートの家賃収入（入居率"+Math.round(occ*100)+"%）",rent]);lines.push(["out","アパートのローン・修繕・税金",p+rep+40]);if(rep>100)lines.push(["ev","アパートの大きな修繕が発生",0])}
+  // その年の出来事（一時金）
+  if(rnd()<.01+Math.max(0,S.age-30)*.0009){const c=30+rnd()*150;S.cash-=c;lines.push(["out","病気で入院",c])}
+  if(!S.st.inherit&&S.age>=50&&S.age<=72&&rnd()<.04){const g=300+rnd()*1700;S.st.inherit=true;S.cash+=g;lines.push(["in","親からの相続",g])}
+  if(S.age>=50&&S.age<=68&&rnd()<.025){S.cash-=100;lines.push(["out","親の介護費用",100])}
+  if(rnd()<.15){const c=15+rnd()*35;S.cash-=c;lines.push(["out","家電の買い替え",c])}
+  if(rnd()<.2){const c=5+rnd()*15;S.cash-=c;lines.push(["out","冠婚葬祭",c])}
+  const yr=(g)=>Math.pow(Math.max(.05,g),1/12);
+  S.Y={y,crash,b,f,lines,monthly:flow/12,ownM,inM:tin/12,outM:(tin-flow)/12,tsumiDone:0,
+    gm:yr(1+(crash?.08:.04)+randn()*.14),cm:yr(crash?.4:Math.max(.15,1.25+randn()*.7)),
+    hm:yr(1.01+randn()*.04+(crash?-.07:0)),am:yr(1+randn()*.03+(crash?-.06:0)),carm:yr(.85),
+    bust:S.single>0&&rnd()<.02?Math.floor(rnd()*12):-1};
+  S.cur=y;RNG=null;
+}
+
+/* ---------- 1か月すすむ ---------- */
+function monthStep(quiet){
+  if(waiting||!S||S.dead)return false;
+  if(S.replay)applyPending();
+  if(!S.Y)yearStart();
+  const Y=S.Y,i=S.m;
+  RNG=stream(S.mo,3);
+  S.cash+=Y.monthly;
+  const tm=S.tsumi/12;
+  if(S.tsumiOn&&S.tsumi>0&&!S.retired&&S.cash>tm){S.cash-=tm;S.fund+=tm;Y.tsumiDone+=tm}
+  const fm=Math.exp(Y.f[i]);
+  S.fund*=fm;S.ghosts.forEach(g=>g.v*=fm);
+  if(S.single>0){S.single*=Math.max(.3,Math.pow(fm,1.3)*Math.exp(randn()*.07));if(Y.bust===i){S.single*=.05;S.st.bust++;Y.lines.push(["ev","持っていた個別株の会社が倒産…",0])}}
+  if(S.gold>0)S.gold*=Y.gm;
+  if(S.crypto>0)S.crypto*=Y.cm*Math.exp(randn()*.12);
+  if(S.home)S.home.value*=Y.hm;
+  if(S.apt)S.apt.value*=Y.am;
+  if(S.car)S.car.value*=Y.carm;
+  RNG=null;
+  if(S.debt>0)S.debt*=Math.pow(1.14,1/12);
+  if(S.cash<0&&S.fund>0){const t=Math.min(S.fund,-S.cash);S.fund-=t;S.cash+=t;Y.draw=(Y.draw||0)+t}
+  if(S.cash<0){S.debt+=-S.cash;S.cash=0;Y.short=true}
+  S.m++;S.mo++;
+  const crashNow=Y.crash&&i===Y.b;
+  const n=net();S.st.peak=Math.max(S.st.peak,n);
+  S.hist.push({x:S.startAge+S.mo/12,net:n,crash:crashNow,ye:S.m===12});
+  if(crashNow)crashPhase();
+  else if(S.m===12)yearEnd();
+  if(!quiet||waiting||S.dead)render();
+  return true;
+}
+
+/* ---------- 操作の記録と再生 ---------- */
+function rec(k,d){S.acts.push({mo:S.mo,k,...d})}
+// 再生中に自分で操作したら、そこから分岐する
+function userAct(){if(S.replay)endReplay()}
+function endReplay(){if(!S.replay)return;S.compare=S.replay.hist;S.replay=null;
+  addBook(S.age,[["ev","ここから自分の判断で人生をやり直します（元の人生はグラフの点線）",0]]);render()}
+function applyPending(){const R=S.replay;
+  while(R&&R.p<R.acts.length&&R.acts[R.p].mo===S.mo&&R.acts[R.p].k!=="crash"){const a=R.acts[R.p++];
+    if(a.k==="buy")doBuy(a.id,a.amt);else if(a.k==="loan")doLoan(a.id,a);else if(a.k==="fix")doFix(a.id);
+    else if(a.k==="sell")doSell(a.id);else if(a.k==="tsumi")doTsumi(a.on);else if(a.k==="param")doParam(a.p);else if(a.k==="fire")doFire()}
+  if(R&&R.p>=R.acts.length&&R.end){}
+}
+function doBuy(id,a){const it=SHOP.find(s=>s.id===id);S.cash-=a;S[id]+=a;if(id==="single")S.st.singleIn+=a;if(id==="crypto")S.st.cryptoIn+=a;
+  if(!S.st.bought.includes(id))S.st.bought.push(id);addBook(S.age,[["mv",it.nm+"を購入",a]]);rec("buy",{id,amt:a})}
+function doLoan(id,o){const it=SHOP.find(s=>s.id===id);const fee=it.price*.07,rate=o.vr?.006:.019,loan=Math.max(0,it.price-o.down),p=loan>0?pay(loan,rate,o.yrs):0,cashNeed=o.down+fee;
+  S.cash-=cashNeed;S[id]={value:it.price,loan,rate,pay:p,left:o.yrs,vr:o.vr};if(!S.st.bought.includes(id))S.st.bought.push(id);
+  addBook(S.age,[["mv",it.nm+"を購入（頭金・諸費用）",cashNeed],["ev",loan>0?`${o.vr?"変動":"固定"}金利${(rate*100).toFixed(1)}%・${o.yrs}年で${fmt(loan)}のローンを組みました`:"現金で一括購入しました",0]]);
+  rec("loan",{id,down:o.down,yrs:o.yrs,vr:o.vr})}
+function doFix(id){const it=SHOP.find(s=>s.id===id);S.cash-=it.price;if(id==="car")S.car={value:it.price};
+  if(!S.st.bought.includes(id))S.st.bought.push(id);addBook(S.age,[["mv",it.nm+"を購入",it.price]]);rec("fix",{id})}
+function doSell(id){let v=0;
+  if(id==="home"||id==="apt"){v=S[id].value*.95-S[id].loan;S[id]=null}
+  else if(id==="car"){v=S.car.value*.9;S.car=null}
+  else{v=S[id];S[id]=0}
+  S.cash+=v;addBook(S.age,[[v>=0?"in":"out",NAMES[id]+"を売却",Math.abs(v)]]);rec("sell",{id})}
+function doTsumi(on){S.tsumiOn=on;if(!on)S.st.stopTsumi++;addBook(S.age,[["ev","つみたてを"+(on?"再開":"止めた"),0]]);rec("tsumi",{on})}
+function fireInfo(){const inf=Math.pow(1.02,S.t);
+  const yearly=(EXP.reduce((s,e)=>e[0]==="rent"&&S.home?s:s+S.exp[e[0]],0)*12+(S.home&&S.home.loan>0?S.home.pay:0)+(S.home?60:0))*inf;
+  const fin=S.cash+S.fund+S.single+S.gold+S.crypto,target=yearly*25,lump=Math.round(JOB[S.job].lump*Math.min(1,Math.max(0,S.age-22)/38)*.8);
+  return {yearly,fin,target,lump,rate:fin/target}}
+function doFire(){const f=fireInfo();S.retired=true;S.fired=S.age;S.penF=Math.min(1,Math.max(0,S.age-22)/43);
+  if(S.Y){S.Y.monthly-=S.Y.ownM||0;S.Y.inM-=S.Y.ownM||0;S.Y.ownM=0}
+  if(f.lump>0)S.cash+=f.lump;S.tsumiOn=false;
+  addBook(S.age,[["ev",`FIRE！${S.age}歳で仕事をやめました（その時の資産は生活費の${(f.fin/f.yearly).toFixed(1)}年分）`,0]].concat(f.lump>0?[["in","早期退職の退職金",f.lump]]:[]));
+  rec("fire",{})}
+function doParam(p){const ch=[];
+  if(p.salary!==undefined&&!S.retired&&Math.round(p.salary)!==Math.round(S.salary)){ch.push("年収"+fmt(S.salary)+"→"+fmt(p.salary));S.salary=p.salary}
+  if(p.tsumi!==undefined&&p.tsumi!==S.tsumi){ch.push("つみたて"+fmt(S.tsumi)+"→"+fmt(p.tsumi)+"／年");S.tsumi=p.tsumi;if(p.tsumi>0)S.tsumiOn=true}
+  if(p.retire!==undefined&&!S.retired&&p.retire!==S.retire){ch.push("仕事をやめる年齢"+S.retire+"→"+p.retire+"歳");S.retire=Math.max(S.age+1,p.retire)}
+  if(p.side!==undefined&&p.side!==S.side){ch.push("副業・その他の収入"+fmt(S.side)+"→"+fmt(p.side)+"／年");S.side=p.side}
+  if(p.exp){const sx=x=>x.reduce((s,r)=>s+r.v,0);
+    const live=(ex,xt)=>(EXP.reduce((s,e)=>e[0]==="rent"?s:s+(ex[e[0]]||0),0)+sx(xt))*(S.retired?.85:1)+(S.home?0:(ex.rent||0));
+    const a=EXP.reduce((s,e)=>s+S.exp[e[0]],0)+sx(S.extra),b=EXP.reduce((s,e)=>s+(p.exp[e[0]]||0),0)+sx(p.extra||S.extra);
+    const before=live(S.exp,S.extra);
+    if(Math.abs(a-b)>.05)ch.push("毎月の支出"+a.toFixed(1)+"→"+b.toFixed(1)+"万円");S.exp={...p.exp};if(p.extra)S.extra=p.extra.map(r=>({...r}));
+    // 支出は来月から反映：今年の残りの月の収支を直す
+    if(S.Y){const d=(live(S.exp,S.extra)-before)*Math.pow(1.02,S.t);S.Y.monthly-=d;S.Y.outM+=d}}
+  if(ch.length)addBook(S.age,[["ev","設定を変更："+ch.join("、"),0]]);rec("param",{p})}
+
+/* ---------- 暴落 ---------- */
+function crashPhase(){
+  const Y=S.Y,y=Y.y;S.st.crashes++;
+  const R=S.replay;
+  if(R&&R.acts[R.p]&&R.acts[R.p].k==="crash"&&R.acts[R.p].mo===S.mo){const a=R.acts[R.p++];doCrash(a.c,a.amt||0,a.stop,true);return}
+  waiting=true;resumeAuto=!!timer;stopAuto();
+  const title=y.name||(y.yr+"年の暴落");
+  dialog(`<div class="stamp">暴落</div>
+   <p class="muted" style="margin:0">${S.age}歳${S.m}か月・${y.yr}年の相場がやってきた</p>
+   <h2>${esc(title)}</h2>
+   <p>株価がこの数か月で <b class="out">${pct(y.dip)}</b> 下がりました。</p>
+   <div class="drop">投資信託はいま <b class="out">${fmt(S.fund)}</b></div>
+   <p class="muted" style="font-size:13px">手元の現金：${fmt(Math.max(0,S.cash))}　ニュースは「まだ下がる」という声であふれています。どうしますか？</p>
+   <div class="choices">
+     <button data-c="all">全部売って現金にする<small>これ以上は減らない。でも戻ったときも増えない</small></button>
+     <button data-c="half">半分だけ売る<small>迷ったときの折衷案</small></button>
+     <button data-c="hold">何もしない（持ち続ける）<small>見ないふりをして耐える</small></button>
+     <div class="choices" style="margin:0;border:1.5px solid var(--line);border-radius:10px;padding:10px;background:var(--paper)">
+       <b style="font-size:14px">現金で買い増す</b>
+       <div class="inline"><input id="buyAmt" type="number" min="0" step="10" value="${Math.max(0,Math.round(Math.min(S.cash*.5,500)/10)*10)}"> 万円
+       <button class="btn" data-c="buy" style="padding:7px 14px">買い増す</button></div>
+     </div>
+     <label style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="stopT" ${S.tsumiOn?"":"disabled"}> ついでにつみたてを止める</label>
+     <div class="err" id="cErr"></div>
+   </div>`);
+  $("#dlg").querySelectorAll("[data-c]").forEach(b=>b.addEventListener("click",()=>decide(b.dataset.c)));
+}
+function decide(c){
+  let amt=0;
+  if(c==="buy"){amt=Number($("#buyAmt").value)||0;if(amt<=0||amt>S.cash){$("#cErr").textContent="手元の現金（"+fmt(Math.max(0,S.cash))+"）以内の金額を入れてください";return}}
+  const stop=!!($("#stopT")&&$("#stopT").checked);
+  closeDlg();waiting=false;doCrash(c,amt,stop,false);render();
+  if(resumeAuto)startAuto();
+}
+function doCrash(c,amt,stop,replayed){
+  const y=S.Y.y,L=S.Y.lines;
+  if(c==="buy"){S.cash-=amt;S.fund+=amt;S.ghosts.push({kind:"buy",amt,v:amt});L.push(["mv","暴落中に買い増し",amt])}
+  if(c==="all"||c==="half"){const a=c==="all"?S.fund:S.fund/2;S.fund-=a;S.cash+=a;S.ghosts.push({kind:"sell",amt:a,v:a});L.push(["mv",(c==="all"?"全部":"半分")+"売って現金に",a])}
+  if(stop&&S.tsumiOn){S.tsumiOn=false;S.st.stopTsumi++;L.push(["ev","つみたてを止めた",0])}
+  if(replayed)L.push(["ev","（記録どおり：「"+({all:"全部売る",half:"半分売る",hold:"持ち続ける",buy:"買い増す"})[c]+"」を選択）",0]);
+  S.dec.push({age:S.age,yr:y.yr,name:y.name||y.yr+"年",c,dip:y.dip,r:y.r});
+  S.Y.crashLine=true;rec("crash",{c,amt,stop});
+}
+
+/* ---------- 1年のおわり：記帳・ローン返済・寿命 ---------- */
+function yearEnd(){
+  const Y=S.Y,y=Y.y,L=Y.lines;
+  RNG=stream(S.t,4);
+  if(Y.tsumiDone>0)L.push(["mv","つみたて（投資信託へ）",Y.tsumiDone]);
+  L.unshift([Y.crashLine?"crash":"mk",y.yr+"年の相場"+(y.name?"："+y.name:"")+"（途中で"+pct(y.dip)+"、年末は"+pct(y.r)+"）",0]);
+  for(const k of ["home","apt"]){const a=S[k];if(a&&a.loan>0){const pr=Math.min(a.loan,a.pay-a.loan*a.rate);a.loan=Math.max(0,a.loan-pr);a.left=Math.max(1,a.left-1);
+    if(a.loan<1){a.loan=0;L.push(["ev",NAMES[k]+"のローンを完済！",0])}
+    else if(a.vr){const old=a.rate;a.rate=Math.min(.04,Math.max(.003,a.rate+randn()*.0015+(Y.crash?-.001:.0004)));a.pay=pay(a.loan,a.rate,a.left);
+      if(Math.abs(a.rate-old)>=.002)L.push(["ev",`変動金利が${(old*100).toFixed(1)}%→${(a.rate*100).toFixed(1)}%に${a.rate>old?"上がり":"下がり"}、返済額が変わりました`,0])}}}
+  if(Y.draw)L.push(["mv","生活費のため投資信託を取り崩し",Y.draw]);
+  if(Y.short){S.st.short++;L.push(["ev","お金が足りず、高い金利で借りた月がありました",0])}
+  if(S.debt>0&&S.cash>200){const p=Math.min(S.debt,S.cash-200);S.debt-=p;S.cash-=p;if(p>0)L.push(["out","借金の返済",p])}
+  if(!S.retired)S.salary*=1.012+randn()*.01;
+  const age=S.age;
+  S.age++;S.year++;S.t++;S.m=0;S.Y=null;
+  const q=S.age<50?.002:Math.min(.5,.0004*Math.exp(.095*(S.age-30)));
+  if(S.age>=100||rnd()<q){S.dead=true;L.push(["ev",S.age+"歳で人生を終えました",0])}
+  RNG=null;
+  addBook(age,L);
+  if(S.dead){stopAuto();setTimeout(showResult,700)}
+}
+
+/* ---------- 買い物 ---------- */
+function openShop(id){
+  const it=SHOP.find(s=>s.id===id);
+  if(it.kind==="amt"){
+    dialog(`<h2>${it.nm}</h2><p class="muted">${it.d}</p><p>手元の現金：<b class="num">${fmt(Math.max(0,S.cash))}</b></p>
+      <div class="inline"><input id="amt" type="number" min="0" step="10" value="${Math.max(0,Math.round(Math.min(S.cash,300)/10)*10)}"> 万円</div>
+      <div class="err" id="sErr"></div>
+      <div class="ctrl"><button class="btn" id="ok">買う</button><button class="btn ghost" id="cancel">やめる</button></div>`);
+    $("#ok").onclick=()=>{const a=Number($("#amt").value)||0;if(a<=0||a>S.cash){$("#sErr").textContent="手元の現金（"+fmt(Math.max(0,S.cash))+"）以内の金額を入れてください";return}
+      userAct();doBuy(id,a);closeDlg();render()};
+  }else if(it.kind==="loan"){
+    const fee=it.price*.07,maxLoan=S.retired?0:S.salary*it.mult;
+    const d0=Math.max(0,Math.min(S.cash-fee,Math.max(it.price*.1,it.price-maxLoan)));
+    dialog(`<h2>${it.nm}</h2><p class="muted">${it.d}</p>
+      <div class="form" style="box-shadow:none;padding:14px">
+        <div class="field"><label for="lDown">頭金</label><input id="lDown" type="number" min="0" step="10" value="${Math.round(d0/10)*10}"><span class="unit">万円（0ならフルローン）</span></div>
+        <div class="field"><label for="lYrs">返済年数</label><select id="lYrs">${[20,25,30,35].map(y=>`<option value="${y}" ${y===it.yrs?"selected":""}>${y}年</option>`).join("")}</select></div>
+        <div class="field full"><label for="lRate">金利</label><select id="lRate"><option value="var">変動金利 0.6%（毎年見直し。上がることも）</option><option value="fix">固定金利 1.9%（ずっと同じ）</option></select></div>
+      </div>
+      <div id="lPrev" style="font-size:14px;margin-top:10px"></div>
+      <div class="err" id="lErr"></div>
+      <div class="ctrl"><button class="btn" id="ok">ローンを組んで買う</button><button class="btn ghost" id="cancel">やめる</button></div>`);
+    const calc=()=>{const down=Math.max(0,Number($("#lDown").value)||0),yrs=Number($("#lYrs").value),vr=$("#lRate").value==="var",rate=vr?.006:.019;
+      const loan=Math.max(0,it.price-down),p=loan>0?pay(loan,rate,yrs):0,cashNeed=down+fee;
+      let err="";if(down>it.price)err="頭金が物件の値段をこえています";else if(cashNeed>S.cash)err="手元の現金が足りません（頭金＋諸費用 "+fmt(cashNeed)+"）";
+      else if(loan>maxLoan)err=S.retired?"仕事をやめているのでローンが組めません。現金で買うには頭金を全額にしてください":"借りられるのは年収の"+it.mult+"倍（"+fmt(maxLoan)+"）までです。頭金を増やしてください";
+      $("#lPrev").innerHTML=`借りる額 <b class="num">${fmt(loan)}</b>　毎年の返済 <b class="num">${fmt(p)}</b>（月${fmt(p/12)}）<br>いま払う現金 <b class="num">${fmt(cashNeed)}</b>（頭金＋諸費用${fmt(fee)}）`;
+      $("#lErr").textContent=err;$("#ok").disabled=!!err;return {down,yrs,vr,rate,loan,p,cashNeed}};
+    ["#lDown","#lYrs","#lRate"].forEach(q=>$(q).addEventListener("input",calc));calc();
+    $("#ok").onclick=()=>{const c=calc();if($("#ok").disabled)return;userAct();doLoan(id,c);closeDlg();render()};
+  }else{
+    const need=it.down??it.price;const has=S[id];
+    dialog(`<h2>${it.nm}</h2><p class="muted">${it.d}</p>
+      <p>いま必要な現金：<b class="num">${fmt(need)}</b>　手元の現金：<b class="num">${fmt(Math.max(0,S.cash))}</b></p>
+      ${it.down?`<p style="font-size:13px">ローンの返済は毎年 <b class="num">${fmt(pay(it.price-it.down,it.rate,it.yrs))}</b></p>`:""}
+      <div class="err">${has?"すでに持っています":(S.cash<need?"現金が足りません。少し貯めてから来てください":"")}</div>
+      <div class="ctrl"><button class="btn" id="ok" ${has||S.cash<need?"disabled":""}>買う</button><button class="btn ghost" id="cancel">やめる</button></div>`);
+    $("#ok").onclick=()=>{userAct();doFix(id);closeDlg();render()};
+  }
+  $("#cancel").onclick=closeDlg;
+}
+function sell(id){userAct();doSell(id);render()}
+
+/* ---------- 画面 ---------- */
+function addBook(age,lines){lines.forEach((l,i)=>S.book.push({age,first:i===0,l}))}
+function pts(){return view==="year"?S.hist.filter((p,i)=>p.ye||i===S.hist.length-1||p.crash):S.hist}
+function render(){
+  $("#hAge").textContent=S.age+"歳"+(S.m?S.m+"か月":"");$("#hYear").textContent=S.year+"年"+(S.m+1)+"月";$("#hNet").textContent=fmt(net());
+  $("#prog").style.width=(S.m/12*100)+"%";
+  {const b=monthNow(),d=b.inM-b.outM;$("#hBalV").textContent=(d>=0?"+":"−")+Math.abs(d).toFixed(1)+"万円";$("#hBal").className="hbal "+(d>=0?"plus":"minus");
+   $("#hBalS").textContent=`手取り ${b.inM.toFixed(1)}万 − 支出 ${b.outM.toFixed(1)}万`}
+  $("#hMarket").innerHTML=S.cur?(S.Y?`今年の相場：<b>${S.cur.yr}年</b>の値動き　年初から <b class="${ytd()<0?"out":"in"}">${pct(ytd())}</b>`:`去年の相場は<b>${S.cur.yr}年</b>の値動き（${pct(S.cur.r)}）${S.cur.name?"："+esc(S.cur.name):""}`):"相場はまだ動いていません。「自動ですすむ」か「1か月すすむ」で人生が進みます";
+  const H=[];const row=(nm,sub,v,id)=>H.push(`<div class="row"><div class="nm">${nm}${sub?`<small>${sub}</small>`:""}</div><div style="display:flex;gap:8px;align-items:center"><span class="v num">${fmt(v)}</span>${id?`<button data-sell="${id}">売る</button>`:""}</div></div>`);
+  row("現金・預金","",S.cash);
+  row("投資信託",S.tsumi>0&&!S.retired?`つみたて ${fmt(S.tsumi)}／年 <button data-t style="margin-left:4px">${S.tsumiOn?"止める":"再開"}</button>`:"",S.fund,S.fund>0?"fund":"");
+  if(S.single>0)row("個別株","",S.single,"single");
+  if(S.gold>0)row("金","",S.gold,"gold");
+  if(S.crypto>0)row("暗号資産","",S.crypto,"crypto");
+  const lt=a=>a.loan>0?`ローン残り ${fmt(a.loan)}（${a.vr?"変動":"固定"}${(a.rate*100).toFixed(1)}%・年${fmt(a.pay)}）`:"ローンなし";
+  if(S.home)row("タワーマンション",lt(S.home),S.home.value,"home");
+  if(S.apt)row("投資用アパート",lt(S.apt),S.apt.value,"apt");
+  if(S.car)row("スポーツカー","",S.car.value,"car");
+  if(S.debt>0)row('<span class="out">借金</span>',"金利14%",-S.debt);
+  $("#hold").innerHTML=H.join("");
+  $("#hold").querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
+  const t=$("#hold").querySelector("[data-t]");if(t)t.onclick=()=>{userAct();doTsumi(!S.tsumiOn);render()};
+  $("#shop").innerHTML=SHOP.map(s=>{const owned=s.kind!=="amt"&&S[s.id];const need=s.kind==="fix"?s.price:s.kind==="loan"?s.price*.07:10;const ok=!S.dead&&!owned&&S.cash>=need;
+    const note=owned?"":S.cash<need?`<div class="need">あと${fmt(need-Math.max(0,S.cash))}</div>`:"";
+    return `<div class="item ${ok?"":"off"}"><div style="min-width:0"><b>${s.nm}</b><span>${s.d}</span></div><div><button class="btn" data-shop="${s.id}" ${ok?"":"disabled"}>${owned?"購入済み":"買う"}</button>${note}</div></div>`}).join("");
+  $("#shop").querySelectorAll("[data-shop]").forEach(b=>b.onclick=()=>openShop(b.dataset.shop));
+  const inf=Math.pow(1.02,S.t),rows=EXP.filter(e=>!(e[0]==="rent"&&S.home)).map(e=>[e[1].replace(/（.*）/,""),S.exp[e[0]]*inf*(S.retired&&e[0]!=="rent"?.85:1)]).concat(S.extra.map(r=>[esc(r.n),r.v*inf*(S.retired?.85:1)]));
+  const tot=rows.reduce((s,r)=>s+r[1],0);
+  const hi=S.hiRows||new Set();
+  $("#exList").innerHTML=rows.map(r=>`<div class="row ${hi.has(r[0])?"upd":""}"><div class="nm">${r[0]}</div><span class="v num">${r[1].toFixed(1)}万円</span></div>`).join("")+`<div class="row"><div class="nm"><b>合計</b><small>${S.retired?"仕事をやめたので少し減りました。":""}教育費は通帳に別で記帳</small></div><b class="v num">${tot.toFixed(1)}万円</b></div>`;
+  const tb=[];
+  S.book.slice(-160).forEach(e=>{const [k,txt,v]=e.l;const cls=k==="out"?"out":k==="in"?"in":"";
+    const tag=k==="crash"?'<span class="tag crash">暴落</span>':k==="ev"?'<span class="tag ev">出来事</span>':"";
+    tb.push(`<tr class="${e.first?"yr":""}"><td class="num">${e.first?e.age:""}</td><td>${tag}${esc(txt)}</td><td class="r num ${cls}">${v?(k==="out"?"−":k==="in"?"+":"")+fmt(v):""}</td></tr>`)});
+  $("#book").innerHTML=tb.join("");const bk=$(".book");bk.scrollTop=bk.scrollHeight;
+  ["#bMonth","#bStep","#bAuto","#bEnd","#bParam"].forEach(s=>$(s).disabled=S.dead);
+  $("#bFire").hidden=S.retired;
+  const rb=$("#replayBar");
+  if(S.replay){rb.hidden=false;const R=S.replay;const last=R.hist[R.hist.length-1];
+    rb.innerHTML=`<span><b>記録を再生中</b>　記録では${Math.floor(last.x)}歳・${fmt(last.net)}で終わった人生です。操作は記録どおりに進みます。</span><button class="btn" id="bBranch">ここから自分で操作する</button>`;
+    $("#bBranch").onclick=()=>{stopAuto();endReplay()}}
+  else if(S.compare){rb.hidden=false;rb.innerHTML=`<span>記録した人生（グラフの点線）と比べながら進んでいます。</span>`}
+  else rb.hidden=true;
+  drawChart($("#chart"),pts());
+}
+// 毎月の収支の見込み（その年の出来事を含まない、ふだんの月の値）
+function budget(){const infl=Math.pow(1.02,S.t),it=[];let inc=0;
+  if(!S.retired)inc=(S.salary+S.spouseInc)*.78;else if(S.spouseInc>0)inc=S.spouseInc*.78;
+  if(S.age>=65)inc+=(80+(JOB[S.job].pen-80)*(S.penF??1)+(S.spouse!=="none"?80:0))*.9;
+  if(S.side>0)inc+=S.side*.8;
+  const live=(EXP.reduce((s,e)=>e[0]==="rent"?s:s+S.exp[e[0]],0)+S.extra.reduce((s,r)=>s+r.v,0))*12*infl*(S.retired?.85:1);it.push(["生活費",live]);
+  if(!S.home&&S.exp.rent>0)it.push(["家賃",S.exp.rent*12*infl]);
+  let edu=0;S.kids.forEach(k=>{edu+=eduCost(k+S.t)*infl});if(edu>0)it.push(["子どもの学費など",edu]);
+  if(S.home)it.push(["住宅ローン・管理費",(S.home.loan>0?S.home.pay:0)+60]);
+  if(S.car)it.push(["スポーツカーの維持費",80]);
+  if(S.apt){inc+=560*.9;it.push(["アパートのローン・修繕など",(S.apt.loan>0?S.apt.pay:0)+90])}
+  const out=it.reduce((s,x)=>s+x[1],0);return {inM:inc/12,outM:out/12,items:it.map(x=>[x[0],x[1]/12])}}
+function monthNow(){return S.Y?{inM:S.Y.inM,outM:S.Y.outM}:budget()}
+function startDialog(){const b=budget(),d=b.inM-b.outM,tm=S.tsumi/12;
+  dialog(`<p class="muted" style="margin:0">${S.age}歳・${JOB[S.job].n}</p><h2>人生スタート！ あなたの毎月のお金</h2>
+    <div class="bal ${d>=0?"plus":"minus"}"><span>毎月の収支</span><b class="num">${d>=0?"+":"−"}${Math.abs(d).toFixed(1)}万円</b></div>
+    <dl class="kv"><dt>手取りの収入</dt><dd class="in">+${b.inM.toFixed(1)}万円</dd>
+    ${b.items.map(x=>`<dt>${x[0]}</dt><dd class="out">−${x[1].toFixed(1)}万円</dd>`).join("")}
+    ${tm>0?`<dt>つみたて（収支から投資へ）</dt><dd>${tm.toFixed(1)}万円</dd>`:""}</dl>
+    <p style="font-size:14px">${d>=0?`このままだと、1年で約<b>${fmt(d*12)}</b>ずつお金が増えていきます。`:`このままだと、1年で約<b class="out">${fmt(-d*12)}</b>ずつお金が減っていきます。貯金が尽きる前に、支出を見直すか収入を増やす必要があります。`}${tm>0&&d>=0&&d<tm?"<br>黒字よりつみたてが多いので、現金は少しずつ減ります。":""}</p>
+    <p class="muted" style="font-size:12px">手取りは額面の約78%で計算しています。病気や家電の買い替えなど、たまにある出費は入っていません。</p>
+    <div class="ctrl"><button class="btn" id="sdOk">この人生をはじめる</button></div>`);
+  $("#sdOk").onclick=closeDlg}
+function ytd(){return S.Y?Math.exp(S.Y.f.slice(0,S.m).reduce((x,y)=>x+y,0))-1:0}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function drawChart(cv,h){
+  const dpr=window.devicePixelRatio||1;const w=cv.clientWidth||600,hh=cv.clientHeight||220;
+  cv.width=w*dpr;cv.height=hh*dpr;const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hh);
+  const pad={l:62,r:12,t:12,b:24};const ink=css("--ink"),mu=css("--muted"),ln=css("--line"),ac=css("--accent"),st=css("--stamp");
+  const a0=S.startAge,a1=Math.max(a0+10,h[h.length-1].x,S.compare?S.compare[S.compare.length-1].x:0);
+  const cmp=S.compare&&cv.id!=="none"?(view==="year"?S.compare.filter((p,i)=>p.ye||i===S.compare.length-1):S.compare):null;
+  const all=cmp?h.concat(cmp):h;
+  let mn=Math.min(0,...all.map(p=>p.net)),mx=Math.max(100,...all.map(p=>p.net));
+  const step=niceStep((mx-mn)/4);mn=Math.floor(mn/step)*step;mx=Math.ceil(mx/step)*step;
+  const X=a=>pad.l+(a-a0)/(a1-a0)*(w-pad.l-pad.r),Y=v=>pad.t+(1-(v-mn)/(mx-mn))*(hh-pad.t-pad.b);
+  c.font="11px "+css("--f-num");c.fillStyle=mu;c.strokeStyle=ln;c.lineWidth=1;
+  for(let v=mn;v<=mx+1e-6;v+=step){c.beginPath();c.moveTo(pad.l,Y(v));c.lineTo(w-pad.r,Y(v));c.stroke();c.textAlign="right";c.fillText(short(v),pad.l-6,Y(v)+4)}
+  c.textAlign="center";const as=Math.max(5,Math.ceil((a1-a0)/8/5)*5);for(let a=Math.ceil(a0/as)*as;a<=a1;a+=as)c.fillText(a+"歳",X(a),hh-6);
+  if(mn<0){c.strokeStyle=mu;c.beginPath();c.moveTo(pad.l,Y(0));c.lineTo(w-pad.r,Y(0));c.stroke()}
+  if(cmp){c.save();c.setLineDash([5,4]);c.strokeStyle=mu;c.lineWidth=1.5;c.beginPath();cmp.forEach((p,i)=>i?c.lineTo(X(p.x),Y(p.net)):c.moveTo(X(p.x),Y(p.net)));c.stroke();c.restore()}
+  const base=Y(Math.max(mn,0));
+  c.beginPath();h.forEach((p,i)=>i?c.lineTo(X(p.x),Y(p.net)):c.moveTo(X(p.x),Y(p.net)));
+  c.lineTo(X(h[h.length-1].x),base);c.lineTo(X(h[0].x),base);c.closePath();c.globalAlpha=.12;c.fillStyle=ac;c.fill();c.globalAlpha=1;
+  c.beginPath();h.forEach((p,i)=>i?c.lineTo(X(p.x),Y(p.net)):c.moveTo(X(p.x),Y(p.net)));c.strokeStyle=ac;c.lineWidth=view==="month"?1.8:2.5;c.lineJoin="round";c.stroke();
+  h.forEach(p=>{if(p.crash){c.fillStyle=st;c.beginPath();c.arc(X(p.x),Y(p.net),4.5,0,7);c.fill()}});
+  const e=h[h.length-1];c.fillStyle=ink;c.beginPath();c.arc(X(e.x),Y(e.net),4,0,7);c.fill();
+}
+function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(Math.max(x,1))));const f=x/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p}
+function short(v){const a=Math.abs(v);return (v<0?"−":"")+(a>=10000?(a/10000).toFixed(a%10000?1:0)+"億":Math.round(a).toLocaleString()+"万")}
+function setView(v){view=v;document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.view===v)));
+  if(!S)return;if(!$("#game").hidden)drawChart($("#chart"),pts());if($("#rchart"))drawChart($("#rchart"),pts())}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(b)setView(b.dataset.view)});
+
+function dialog(html){$("#dlg").innerHTML=html;$("#ov").hidden=false;const f=$("#dlg").querySelector("button,input");if(f)f.focus()}
+function closeDlg(){$("#ov").hidden=true;$("#dlg").innerHTML=""}
+$("#ov").addEventListener("click",e=>{if(e.target.id==="ov"&&!waiting)closeDlg()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!waiting&&!$("#ov").hidden)closeDlg()});
+
+/* ---------- すすめ方 ---------- */
+function startAuto(){stopAuto();timer=setInterval(()=>monthStep(),Number($("#speed").value));$("#bAuto").textContent="一時停止"}
+function stopAuto(){if(timer){clearInterval(timer);timer=null}$("#bAuto").textContent="自動ですすむ"}
+$("#bAuto").onclick=()=>{if(timer)stopAuto();else{monthStep();startAuto()}};
+$("#speed").onchange=()=>{if(timer)startAuto()};
+$("#bMonth").onclick=()=>{stopAuto();monthStep()};
+$("#bStep").onclick=()=>{stopAuto();let n=0;do{monthStep(true);n++}while(S&&!S.dead&&!waiting&&S.m!==0&&n<13);if(S&&!waiting)render()};
+$("#bEnd").onclick=()=>{stopAuto();let n=0;while(S&&!S.dead&&!waiting&&n<1500){monthStep(true);n++}if(S)render()};
+$("#bReset").onclick=()=>{const was=!!timer;stopAuto();
+  dialog(`<span class="rbadge">⟲ リセット</span><h2>人生をリセットしますか？</h2><p>いまの人生（${S.age}歳・純資産${fmt(net())}）は<b class="out">ここで消えて</b>、最初の入力画面にもどります。続きから再開はできません。残したいときは、先に「記録を保存」をしてください。</p>
+    <p class="muted" style="font-size:13px">入力画面の値はそのまま残っています。</p>
+    <div class="ctrl"><button class="btn warn" id="rOk">リセットして最初の画面へ</button><button class="btn ghost" id="rNo">このまま続ける</button></div>`);
+  $("#rOk").onclick=()=>{closeDlg();S=null;waiting=false;$("#game").hidden=true;$("#result").hidden=true;$("#setup").hidden=false;if(mode()==="rand")roll();updLimit();window.scrollTo(0,0)};
+  $("#rNo").onclick=()=>{closeDlg();if(was)startAuto()}};
+/* ---------- FIRE（早期リタイア） ---------- */
+$("#bFire").onclick=()=>{const was=!!timer;stopAuto();const f=fireInfo();const pc=Math.round(f.rate*100);
+  dialog(`<h2>FIREしますか？</h2>
+    <p style="margin-top:0">いま仕事をやめて、資産を取り崩しながら暮らします。</p>
+    <dl class="kv">
+      <dt>使えるお金（現金＋投資）</dt><dd>${fmt(f.fin)}</dd>
+      <dt>1年の生活費</dt><dd>${fmt(f.yearly)}</dd>
+      <dt>FIREの目安（生活費の25倍）</dt><dd>${fmt(f.target)}</dd>
+      <dt>達成度</dt><dd class="${pc>=100?"in":"out"}">${pc}%</dd>
+      ${f.lump>0?`<dt>早期退職の退職金</dt><dd>${fmt(f.lump)}</dd>`:""}
+    </dl>
+    <p class="muted" style="font-size:12px">目安は「資産の4%ずつ使えば、ほぼ尽きない」という4%ルールから計算しています。FIREすると、つみたては止まり、ローンは組めなくなり、年金も少し減ります。${S.spouseInc>0?"配偶者は"+S.retire+"歳まで働き続けます。":""}${S.replay?"<br><b>記録の再生はここで終わり、ここから先は自分の操作になります。</b>":""}</p>
+    <div class="ctrl"><button class="btn warn" id="fOk">FIREする</button><button class="btn ghost" id="fNo">まだ働く</button></div>`);
+  $("#fNo").onclick=()=>{closeDlg();if(was)startAuto()};
+  $("#fOk").onclick=()=>{userAct();doFire();closeDlg();render();if(was)startAuto()}};
+
+/* ---------- 途中で設定を変える ---------- */
+$("#bParam").onclick=()=>{const was=!!timer;stopAuto();const inf=Math.pow(1.02,S.t);
+  dialog(`<h2>設定を変える</h2><p class="muted" style="font-size:13px;margin-top:0">支出とつみたては来月から、年収と副業の収入は来年1月から反映されます。${S.replay?"<br><b>記録の再生はここで終わり、ここから先は自分の操作になります。</b>":""}</p>
+    <div class="form" style="box-shadow:none;padding:14px">
+      <div class="field"><label for="pSal">年収（額面）</label><input id="pSal" type="number" min="0" step="10" value="${Math.round(S.salary)}" ${S.retired?"disabled":""}><span class="unit">万円${S.retired?"（仕事をやめています）":""}</span></div>
+      <div class="field"><label for="pTsu">毎年のつみたて</label><input id="pTsu" type="number" min="0" step="6" value="${S.tsumi}"><span class="unit">万円／年</span></div>
+      <div class="field"><label for="pRet">仕事をやめる年齢</label><input id="pRet" type="number" min="${S.age+1}" max="80" value="${S.retire}" ${S.retired?"disabled":""}></div>
+      <h3>毎月の支出（いまの物価に直す前の値）</h3>
+      ${EXP.map(e=>`<div class="field"><label for="pe_${e[0]}">${e[1]}</label><input id="pe_${e[0]}" type="number" min="0" step="0.1" value="${S.exp[e[0]]}"><span class="unit">万円／月</span></div>`).join("")}
+      ${S.extra.map((r,i)=>`<div class="field"><label for="px_${i}">${esc(r.n)}</label><input id="px_${i}" type="number" min="0" step="0.1" value="${r.v}"><span class="unit">万円／月</span></div>`).join("")}
+      <div class="field"><label for="pSide">副業・その他の収入</label><input id="pSide" type="number" min="0" step="10" value="${S.side}"><span class="unit">万円／年</span></div>
+    </div>
+    <div class="ctrl"><button class="btn" id="pOk">この設定で続ける</button><button class="btn ghost" id="pNo">やめる</button></div>`);
+  $("#pNo").onclick=()=>{closeDlg();if(was)startAuto()};
+  $("#pOk").onclick=()=>{const g=id=>Number($("#"+id).value)||0;
+    const p={tsumi:g("pTsu"),side:g("pSide"),exp:Object.fromEntries(EXP.map(e=>[e[0],g("pe_"+e[0])])),extra:S.extra.map((r,i)=>({n:r.n,v:g("px_"+i)}))};
+    if(!S.retired){p.salary=g("pSal");p.retire=Math.max(S.age+1,g("pRet"))}
+    userAct();doParam(p);closeDlg();render()}};
+
+/* ---------- 1日5回まで（このブラウザでの回数）。感想を送ると+5回 ---------- */
+const LIMIT=5,BONUS=5;
+const LIMIT_ON=true; // デバッグで制限を外すときは false
+const FEEDBACK_TO="edfc5893f7b8f5383ba398aab3142012"; // 感想の送り先（formsubmit.co のエイリアス。メールアドレスを書かずに済む）
+const FEEDBACK_MIN=100;
+function today(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()}
+function pdata(){try{const o=JSON.parse(localStorage.getItem("tm_plays")||"{}");return o.d===today()?{d:o.d,n:o.n||0,b:o.b||0}:{d:today(),n:0,b:0}}catch(e){return {d:today(),n:0,b:0}}}
+function psave(o){try{localStorage.setItem("tm_plays",JSON.stringify(o))}catch(e){}}
+const unlimited=!LIMIT_ON||location.hash==="#unlimited";
+function left(){if(unlimited)return Infinity;const o=pdata();return Math.max(0,LIMIT+o.b*BONUS-o.n)}
+function usePlay(){const o=pdata();o.n++;psave(o);updLimit()}
+function limitText(l){return l===Infinity?"回数制限なし（確認用）":l>0?`今日はあと${l}回遊べます（1日${LIMIT}回まで）`:`今日の分を使い切りました。感想を送ると、あと${BONUS}回遊べます。`}
+function updLimit(){const l=left(),m=$("#limitMsg");if(!m)return;
+  m.textContent=limitText(l);
+  m.classList.toggle("zero",l===0);["#bStart","#ldGo"].forEach(q=>{if($(q))$(q).disabled=l===0});
+  ["#bSame","#bReplay"].forEach(q=>{const b=$(q);if(b)b.disabled=l===0});
+  document.querySelectorAll(".fbslot").forEach(el=>{el.innerHTML=l===0?fbForm():"";if(l===0)wireFb(el)})}
+// 感想フォーム（100文字以上でメール送信 → +5回）
+function fbForm(){return `<div class="fb"><b>感想・直してほしいところを送って、あと${BONUS}回あそぶ</b>
+  <p class="muted" style="font-size:12px;margin:0">${FEEDBACK_MIN}文字以上で送れます。いただいた感想は作者に届き、今後の改善に使います。</p>
+  <textarea class="fbText" rows="5" aria-label="感想・直してほしいところ" placeholder="例：暴落のときに売るか迷うのがリアルで楽しかった。年金の計算が少し甘い気がする。支出の項目に〇〇も入れてほしい…"></textarea>
+  <div class="ctrl" style="margin:0;align-items:center"><button class="btn fbSend" type="button" disabled>感想を送る</button><span class="fbCount muted" style="font-size:12px"></span></div>
+  <div class="fbMsg" style="font-size:13px"></div></div>`}
+function wireFb(root){const ta=root.querySelector(".fbText"),bt=root.querySelector(".fbSend"),ct=root.querySelector(".fbCount"),msg=root.querySelector(".fbMsg");
+  const upd=()=>{const n=[...ta.value.trim()].length;ct.textContent=n>=FEEDBACK_MIN?`${n}文字`:`あと${FEEDBACK_MIN-n}文字`;bt.disabled=n<FEEDBACK_MIN};ta.addEventListener("input",upd);upd();
+  bt.onclick=async()=>{const text=ta.value.trim();if([...text].length<FEEDBACK_MIN)return;
+    if(framed){msg.innerHTML='<span class="out">このプレビューでは送信できません。公開版のページから送ってください。</span>';return}
+    bt.disabled=true;msg.textContent="送っています…";
+    try{const r=await fetch(`https://formsubmit.co/ajax/${FEEDBACK_TO}`,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+        body:JSON.stringify({_subject:"【資産人生シミュレーター】感想が届きました",_template:"table",_captcha:"false",感想:text,送った日時:new Date().toLocaleString("ja-JP"),ページ:location.href})});
+      const j=await r.json().catch(()=>({}));
+      if(r.ok&&(j.success===true||j.success==="true")){const o=pdata();o.b++;psave(o);msg.innerHTML=`<span class="in">送りました。ありがとうございます！ あと${BONUS}回遊べます。</span>`;setTimeout(updLimit,1500)}
+      else{msg.innerHTML='<span class="out">送れませんでした。時間をおいて、もう一度お試しください。</span>';bt.disabled=false}}
+    catch(e){msg.innerHTML='<span class="out">送れませんでした。通信を確かめて、もう一度お試しください。</span>';bt.disabled=false}}}
+updLimit();
+
+/* ---------- アクセス数（GitHub Pagesで公開したときだけ） ---------- */
+// GoatCounter（無料・データベース不要）のコードを入れると、ページを見た人数と遊んだ回数が数えられる
+// Cloudflare Web Analytics（ページを開いた数）：Cloudflareの管理画面でもらう「サイトトークン」を入れると、GitHub Pagesで公開したときだけ数える
+const CF_TOKEN="6b6917595ce0467884b3a24ecb2d3cd7";
+if(CF_TOKEN&&!framed){const sc=document.createElement("script");sc.type="module";sc.src="https://static.cloudflareinsights.com/beacon.min.js";sc.setAttribute("data-cf-beacon",JSON.stringify({token:CF_TOKEN}));document.head.appendChild(sc)}
+// GoatCounter（使わないことにしたので空のまま。入れると遊んだ回数も数えられる）
+const GOATCOUNTER="";
+if(GOATCOUNTER&&!framed){const sc=document.createElement("script");sc.async=true;sc.src="https://gc.zgo.at/count.js";sc.dataset.goatcounter=`https://${GOATCOUNTER}.goatcounter.com/count`;document.head.appendChild(sc)}
+// 遊んだ回数を記録する（ページを開いた数はGoatCounterが自動で数える）
+function track(name){try{if(window.goatcounter&&window.goatcounter.count)window.goatcounter.count({path:"play-"+name,title:name,event:true})}catch(e){}}
+// これまでの合計回数を表示する（GoatCounterの設定で「Allow adding visitor counts on your website」をオンにしておく。数は最大4時間ほど遅れて反映）
+async function showTotal(){if(!GOATCOUNTER||framed)return;let n=0,ok=false;
+  for(const path of ["play-start","play-replay"]){try{const r=await fetch(`https://${GOATCOUNTER}.goatcounter.com/counter/${encodeURIComponent(path)}.json`);
+    if(r.ok){const j=await r.json();n+=Number(String(j.count).replace(/[^0-9]/g,""))||0;ok=true}}catch(e){}}
+  if(ok&&n>0){const el=$("#totalPlays");el.hidden=false;el.innerHTML=`これまでに <b>${n.toLocaleString()}</b> 回の人生がシミュレーションされました`}}
+showTotal();
+
+/* ---------- 記録の保存と読み込み ---------- */
+function record(){
+  const J=S.dead?judge():null;
+  return {app:"tsukuttetameso-money-sim",v:1,savedAt:new Date().toISOString(),seed:S.seed,input:S.input,acts:S.acts,
+    end:S.dead,hist:S.hist.map(p=>[+p.x.toFixed(3),Math.round(p.net),p.crash?1:0,p.ye?1:0]),
+    result:J?{age:S.age,net:Math.round(J.fin),type:J.type}:{age:S.age,net:Math.round(net()),type:null}};
+}
+function openSave(){const was=!!timer;stopAuto();const txt=JSON.stringify(record());
+  dialog(`<h2>記録を保存</h2>
+    <p style="font-size:14px">最初の入力、シード番号（相場と出来事の元）、これまでの操作、資産の推移が入っています。入力画面の「保存した記録を読み込む」に入れると、最初から同じように再生できます。</p>
+    <textarea class="copybox" id="svText" readonly style="font:12px var(--f-num);min-height:140px">${esc(txt)}</textarea>
+    <div class="ctrl"><button class="btn" id="svCopy">コピー</button>${framed?"":`<button class="btn ghost" id="svFile">ファイルに保存</button>`}<button class="btn ghost" id="svClose">閉じる</button></div>
+    <p class="muted" id="svMsg" style="font-size:12px">${framed?"このプレビューではファイルの保存ができないので、コピーしてメモ帳などに貼り、.json で保存してください。":""}</p>`);
+  $("#svCopy").onclick=()=>navigator.clipboard.writeText(txt).then(()=>$("#svMsg").textContent="コピーしました").catch(()=>{$("#svText").select();$("#svMsg").textContent="選択しました。コピーしてください"});
+  if($("#svFile"))$("#svFile").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"}));
+    a.download=`資産人生_${S.input.age}歳から_${S.seed}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+  $("#svClose").onclick=()=>{closeDlg();if(was&&!S.dead)startAuto()}}
+$("#bSave").onclick=openSave;
+function loadRecord(txt){
+  let d;try{d=JSON.parse(txt)}catch(e){throw new Error("JSONとして読めませんでした。コピーした記録をそのまま貼り付けてください")}
+  if(!d||d.app!=="tsukuttetameso-money-sim"||!d.input||!Array.isArray(d.acts)||!Array.isArray(d.hist))throw new Error("このゲームの記録ではないようです");
+  const hist=d.hist.map(a=>({x:a[0],net:a[1],crash:!!a[2],ye:!!a[3]}));
+  document.querySelector(`input[name=lv][value=${d.input.lv==="detail"?"detail":"simple"}]`).checked=true;$("#f").classList.toggle("simple",d.input.lv!=="detail");
+  startGame(d.input,d.seed>>>0,{acts:d.acts,p:0,hist});
+}
+$("#ldFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$("#ldText").value=r.result;$("#ldErr").textContent=""};r.readAsText(f)});
+// 保存した記録の読み込みは「上級者向けの機能」ボタンを押したときだけ出す
+const SHOW_LOAD=true;$("#advBtn").hidden=!SHOW_LOAD;$("#loadBox").hidden=true;
+$("#advBtn").onclick=()=>{const b=$("#loadBox"),open=b.hidden;b.hidden=!open;$("#advBtn").setAttribute("aria-expanded",String(open));$("#advBtn").textContent=(open?"－":"＋")+" 上級者向けの機能"};
+$("#ldGo").onclick=()=>{try{loadRecord($("#ldText").value.trim())}catch(e){$("#ldErr").textContent=e.message}};
+
+window.addEventListener("resize",()=>{if(!S)return;if(!$("#game").hidden)drawChart($("#chart"),pts());if($("#rchart")&&!$("#result").hidden)drawChart($("#rchart"),pts())});
+
+/* ---------- 総評 ---------- */
+function judge(){
+  const D=S.dec,sells=D.filter(d=>d.c==="all"||d.c==="half").length,buys=D.filter(d=>d.c==="buy").length,holds=D.filter(d=>d.c==="hold").length;
+  const missed=S.ghosts.filter(g=>g.kind==="sell").reduce((s,g)=>s+(g.v-g.amt),0);
+  const gained=S.ghosts.filter(g=>g.kind==="buy").reduce((s,g)=>s+(g.v-g.amt),0);
+  const lux=S.st.bought.filter(b=>["home","car","apt"].includes(b)),risky=S.st.singleIn+S.st.cryptoIn;
+  const fin=net();
+  let type,sub;
+  if(D.length===0){type="暴落を知らない幸運児";sub="一度も大きな暴落に出会わない、運のいい人生でした"}
+  else if(buys>0&&sells===0){type="暴落で買い向かう勝負師";sub="みんなが逃げるときに買える、強いメンタルの持ち主"}
+  else if(sells>0&&sells>=D.length/2){type="暴落で守りに入る慎重派";sub="大きく減るのが何より怖い。安心を優先するタイプ"}
+  else if(holds===D.length){type="何があっても動じないガチホ職人";sub="暴落でも売らずに持ち続けた、忍耐の人"}
+  else{type="その時々で考える現実派";sub="場面ごとに判断を変える、バランス型"}
+  const extra=[];if(lux.length>=2)extra.push("夢を買う豪快派");else if(lux.length===1)extra.push("一点豪華主義");if(risky>=1000)extra.push("一発逆転ねらい");if(!lux.length&&!risky)extra.push("堅実コツコツ");
+  const good=[],warn=[];
+  if(S.fired){extra.unshift(S.fired+"歳でFIRE");(fin>0&&S.st.short===0?good:warn).push(fin>0&&S.st.short===0?`${S.fired}歳でFIREして、最後までお金がもちました`:`${S.fired}歳でFIREしたあと、お金が足りなくなりました。生活費の25倍（4%ルール）が目安です`)}
+  if(holds>0)good.push(`暴落でも${holds}回、売らずに持ち続けました。長い目で見ると、これが一番効いています`);
+  if(buys>0)good.push(`暴落中の買い増しで、約${fmt(Math.max(0,gained))}増やしました`);
+  if(sells>0)warn.push(`暴落の途中で売ったことで、約${fmt(Math.max(0,missed))}を取り逃がしました（売らずに持っていた場合との差）`);
+  if(S.st.stopTsumi>0)warn.push("途中でつみたてを止めています。安く買えるときほど続けるのが効きます");
+  if(S.fund>fin*.4&&fin>0)good.push("投資信託が資産の柱になりました。分散して長く持つ形ができています");
+  if(S.st.short>0)warn.push(`お金が足りず借金をした年が${S.st.short}回ありました。生活費の半年〜1年分は現金で持っておくと安心です`);
+  if(S.st.bought.includes("car"))warn.push(`スポーツカーの維持費だけで合計${fmt(S.st.carCost)}かかりました。楽しさの値段として納得できたかが大事です`);
+  if(S.st.bought.includes("home"))(S.home&&S.home.value>S.home.loan?good:warn).push(S.home?`タワーマンションは今${fmt(S.home.value)}（ローン残り${fmt(S.home.loan)}）。`+(S.home.value>S.home.loan?"住む場所が資産としても残りました":"ローンの重さが続きました"):"タワーマンションは途中で手放しました");
+  if(S.st.bust>0)warn.push("個別株で倒産に当たりました。1社に集中すると、こういうことが起きます");
+  if(S.st.cryptoIn>0)(S.crypto>S.st.cryptoIn?good:warn).push(`暗号資産は${fmt(S.st.cryptoIn)}を入れて、最後は${fmt(S.crypto)}になりました`);
+  if(fin>=10000)good.push("最後に1億円を超えました。いわゆる億り人です");
+  if(fin>=5000&&S.age>=80)warn.push(`使い切れずに${fmt(fin)}が残りました。元気なうちに、もっと人生に使ってもよかったかもしれません`);
+  if(fin<0)warn.push("最後は借金が残りました。大きな買い物と現金の残し方を見直すと、結果が変わりそうです");
+  if(!good.length)good.push("大きな失敗をせず、最後まで生活を続けられました");
+  if(!warn.length)warn.push("目立った注意点はありません。次は思い切った買い物もためしてみては？");
+  return {type,sub,extra,good,warn,missed,gained,fin,sells,buys,holds};
+}
+function showResult(){
+  const J=judge();
+  $("#game").hidden=true;const R=$("#result");R.hidden=false;
+  R.innerHTML=`<div class="result">
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <p class="muted" style="margin:0">${S.startAge}歳から${S.age}歳まで生きた、あなたの総評</p>
+      <div class="type">${esc(J.type)}</div>
+      <p style="margin:0">${esc(J.sub)}${J.extra.length?"。そして、"+J.extra.join("・")+"の一面も":""}</p>
+      <dl class="kv">
+        <dt>最後の資産</dt><dd>${fmt(J.fin)}</dd>
+        <dt>一番多かったとき</dt><dd>${fmt(S.st.peak)}</dd>
+        <dt>出会った暴落</dt><dd>${S.dec.length}回（売った${J.sells}・耐えた${J.holds}・買い増した${J.buys}）</dd>
+        ${J.sells?`<dt>売らなかったら</dt><dd class="out">あと約${fmt(Math.max(0,J.missed))}多かった</dd>`:""}
+        ${S.compare?`<dt>記録した人生</dt><dd>${Math.floor(S.compare[S.compare.length-1].x)}歳で${fmt(S.compare[S.compare.length-1].net)}（今回との差 ${fmt(J.fin-S.compare[S.compare.length-1].net)}）</dd>`:""}
+      </dl>
+      <div class="ph"><span class="muted" style="font-size:13px">資産の推移</span>
+        <div class="toggle" role="group" aria-label="グラフの間隔"><button type="button" data-view="month" aria-pressed="${view==="month"}">1か月ごと</button><button type="button" data-view="year" aria-pressed="${view==="year"}">1年ごと</button></div></div>
+      <canvas id="rchart" style="width:100%;height:180px"></canvas>
+      <div class="points">
+        <div class="pt-good"><h4>いい点</h4><ul>${J.good.map(g=>`<li>${esc(g)}</li>`).join("")}</ul></div>
+        <div class="pt-warn"><h4>注意する点</h4><ul>${J.warn.map(g=>`<li>${esc(g)}</li>`).join("")}</ul></div>
+      </div>
+      ${S.dec.length?`<div><h4 style="margin:0 0 4px;font-size:14px">暴落のときの選択</h4><ul style="margin:0;padding-left:1.2em;font-size:14px">${S.dec.map(d=>`<li>${d.age}歳　${esc(d.name)}（${pct(d.dip)}）→ ${({all:"全部売った",half:"半分売った",hold:"持ち続けた",buy:"買い増した"})[d.c]}</li>`).join("")}</ul></div>`:""}
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0">共有カード</h3>
+      <img id="cardImg" class="card-img" alt="結果の共有カード">
+      <p class="muted" style="font-size:12px;margin:0">画像は長押し（右クリック）で保存できます。</p>
+      <textarea id="shareText" class="copybox" readonly></textarea>
+      <div class="ctrl" style="margin:0"><button class="btn" id="bCopy">文章をコピー</button><button class="btn ghost" id="bAgain">もう一度、別の人生を生きる</button></div>
+      <div class="ctrl" style="margin:0" id="resCtrl2"><button class="btn ghost" id="bSame">同じ相場で最初からやり直す</button><button class="btn ghost" id="bReplay">この人生を最初から再生</button><button class="btn ghost" id="bSave2">記録を保存</button></div>
+      <div class="muted" id="copyMsg" style="font-size:13px;min-height:1.2em"></div>
+    </div></div>`;
+  drawChart($("#rchart"),pts());track("finish");
+  $("#cardImg").src=makeCard(J);
+  const txt=`資産人生シミュレーターで${S.startAge}歳から${S.age}歳まで生きてみた。\nタイプは「${J.type}」\n最後の資産：${fmt(J.fin)}／暴落${S.dec.length}回（売った${J.sells}・耐えた${J.holds}・買い増した${J.buys}）\n#つくってためそ #資産人生シミュレーター`;
+  $("#shareText").value=txt;
+  $("#bCopy").onclick=()=>{navigator.clipboard.writeText(txt).then(()=>$("#copyMsg").textContent="コピーしました").catch(()=>{$("#shareText").select();$("#copyMsg").textContent="選択しました。コピーしてください"})};
+  $("#bSame").onclick=()=>startGame(S.input,S.seed,null);
+  $("#bReplay").onclick=()=>{const d=record();startGame(S.input,S.seed,{acts:d.acts,p:0,hist:d.hist.map(a=>({x:a[0],net:a[1],crash:!!a[2],ye:!!a[3]}))})};
+  $("#bSave2").onclick=openSave;
+  $("#resCtrl2").insertAdjacentHTML("afterend",`<p class="limit ${left()===0?"zero":""}">${left()===Infinity?"":limitText(left())}</p><div class="fbslot"></div>`);
+  updLimit();
+  $("#bAgain").onclick=()=>{R.hidden=true;$("#setup").hidden=false;S=null;if(mode()==="rand")roll();updLimit();window.scrollTo(0,0)};
+  window.scrollTo(0,0);
+}
+function makeCard(J){
+  const cv=document.createElement("canvas");cv.width=1200;cv.height=630;const c=cv.getContext("2d");
+  const paper="#edf2ec",ink="#1d2937",acc="#1d6c5f",red="#c5352b",mu="#5b6a64";
+  c.fillStyle=paper;c.fillRect(0,0,1200,630);
+  c.strokeStyle="#c3d0c2";c.lineWidth=1;for(let y=150;y<630;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(1200,y);c.stroke()}
+  c.fillStyle=acc;c.fillRect(0,0,1200,96);
+  c.fillStyle="#fff";c.font="700 22px 'Zen Kaku Gothic New',sans-serif";c.fillText("つくってためそ",48,40);
+  c.font="800 44px 'M PLUS Rounded 1c',sans-serif";c.fillText("資産人生シミュレーター",48,84);
+  c.fillStyle=mu;c.font="700 28px 'Zen Kaku Gothic New',sans-serif";c.fillText(`${S.startAge}歳 → ${S.age}歳　わたしのタイプは`,48,160);
+  c.fillStyle=ink;let fs=72;c.font="800 "+fs+"px 'M PLUS Rounded 1c',sans-serif";while(c.measureText(J.type).width>900&&fs>40){fs-=4;c.font="800 "+fs+"px 'M PLUS Rounded 1c',sans-serif"}
+  c.fillText(J.type,48,250);
+  c.font="700 30px 'Zen Kaku Gothic New',sans-serif";c.fillStyle=mu;c.fillText("最後の資産",48,330);
+  c.fillStyle=ink;c.font="600 64px 'IBM Plex Mono',monospace";c.fillText(fmt(J.fin),48,400);
+  c.font="700 26px 'Zen Kaku Gothic New',sans-serif";c.fillStyle=mu;c.fillText(`暴落 ${S.dec.length}回　売った${J.sells}・耐えた${J.holds}・買い増した${J.buys}`,48,450);
+  const wrap=(t,x,y,w,lh,max)=>{let line="",n=0;for(const ch of t){if(c.measureText(line+ch).width>w){c.fillText(line,x,y);y+=lh;line=ch;if(++n>=max-1){c.fillText(line+"…",x,y);return}}else line+=ch}c.fillText(line,x,y)};
+  c.fillStyle=acc;c.font="700 24px 'Zen Kaku Gothic New',sans-serif";wrap("◎ "+J.good[0],48,510,1100,32,2);
+  c.fillStyle=red;wrap("！ "+J.warn[0],48,580,1100,32,1);
+  c.save();c.translate(1060,250);c.rotate(.2);c.strokeStyle=red;c.lineWidth=6;c.beginPath();c.arc(0,0,82,0,7);c.stroke();
+  c.fillStyle=red;c.font="800 34px 'M PLUS Rounded 1c',sans-serif";c.textAlign="center";c.fillText(J.sells?"売った":J.buys?"買った":"耐えた",0,12);c.restore();
+  return cv.toDataURL("image/png");
+}
+</script>
+
+</body>
+</html>
